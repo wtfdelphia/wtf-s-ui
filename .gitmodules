@@ -1,4 +1,4 @@
 [submodule "frontend"]
 	path = frontend
-	url = https://github.com/WTFGEDelphia/wtf-s-ui-frontend
+	url = https://github.com/wtfdelphia/wtf-s-ui-frontend
 	branch = dev-custom
