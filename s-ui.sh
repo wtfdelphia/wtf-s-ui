@@ -83,7 +83,7 @@ before_show_menu() {
 }
 
 install() {
-    bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/main/install.sh)
+    bash <(curl -Ls https://raw.githubusercontent.com/wtfdelphia/wtf-s-ui/main/install.sh)
     if [[ $? == 0 ]]; then
         if [[ $# == 0 ]]; then
             start
@@ -102,7 +102,7 @@ update() {
         fi
         return 0
     fi
-    bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/main/install.sh)
+    bash <(curl -Ls https://raw.githubusercontent.com/wtfdelphia/wtf-s-ui/main/install.sh)
     if [[ $? == 0 ]]; then
         LOGI "Update is complete, Panel has automatically restarted "
         exit 0
@@ -118,7 +118,7 @@ custom_version() {
     exit 1
     fi
 
-    download_link="https://raw.githubusercontent.com/alireza0/s-ui/main/install.sh"
+    download_link="https://raw.githubusercontent.com/wtfdelphia/wtf-s-ui/main/install.sh"
 
     install_command="bash <(curl -Ls $download_link) $panel_version"
 
@@ -141,15 +141,21 @@ uninstall() {
     else
         systemctl stop s-ui
         systemctl disable s-ui
-        rm /etc/systemd/system/s-ui.service -f
+        # Kill anything still running from a deleted binary so the port frees up.
+        pkill -9 -f '/usr/local/s-ui' 2>/dev/null
+        rm -f /etc/systemd/system/s-ui.service
+        rm -f /etc/systemd/system/multi-user.target.wants/s-ui.service
         systemctl daemon-reload
         systemctl reset-failed
     fi
-    rm /etc/s-ui/ -rf
-    rm /usr/local/s-ui/ -rf
+    rm -rf /etc/s-ui/
+    rm -rf /usr/local/s-ui/
+    # The menu script itself is /usr/bin/s-ui; remove it too so `s-ui` is gone
+    # after uninstall (the running copy lives in memory, so this is safe).
+    rm -f /usr/bin/s-ui
 
     echo ""
-    echo -e "Uninstalled Successfully, If you want to remove this script, then after exiting the script run ${green}rm /usr/local/s-ui -f${plain} to delete it."
+    echo -e "${green}Uninstalled cleanly: binary, database, service unit and the s-ui menu script are all removed.${plain}"
     echo ""
 
     if [[ $# == 0 ]]; then
@@ -174,8 +180,19 @@ set_admin() {
     before_show_menu
 }
 
+show_api_token() {
+    # Print the central-management APIv2 token. Without -new this reuses the
+    # existing token (idempotent), so viewing it never piles up new tokens.
+    local token=$(/usr/local/s-ui/sui token -desc menu 2>/dev/null)
+    if [[ -n "$token" ]]; then
+        echo -e "${green}API token (copy the line below):${plain}"
+        echo -e "${token}"
+    fi
+}
+
 view_admin() {
     /usr/local/s-ui/sui admin -show
+    show_api_token
     before_show_menu
 }
 
@@ -211,6 +228,7 @@ set_setting() {
 view_setting() {
     /usr/local/s-ui/sui setting -show
     view_uri
+    show_api_token
     before_show_menu
 }
 
@@ -323,7 +341,7 @@ show_log() {
 update_shell() {
     # Certificate verification stays on: this file is about to be installed as
     # /usr/bin/s-ui and run as root.
-    wget -O /usr/bin/s-ui -N https://github.com/alireza0/s-ui/raw/main/s-ui.sh
+    wget -O /usr/bin/s-ui -N https://github.com/wtfdelphia/wtf-s-ui/raw/main/s-ui.sh
     if [[ $? != 0 ]]; then
         echo ""
         LOGE "Failed to download script, Please check whether the machine can connect Github"
@@ -931,9 +949,11 @@ show_menu() {
   ${green}19.${plain} SSL Certificate Management
   ${green}20.${plain} Cloudflare SSL Certificate
 ————————————————————————————————
+  ${green}21.${plain} Update Menu Script
+————————————————————————————————
  "
     show_status s-ui
-    echo && read -p "Please enter your selection [0-20]: " num
+    echo && read -p "Please enter your selection [0-21]: " num
 
     case "${num}" in
     0)
@@ -949,7 +969,9 @@ show_menu() {
         check_install && custom_version
         ;;
     4)
-        check_install && uninstall
+        # 卸载不设前置检查:装到一半失败时面板状态就是「未安装」,
+        # 再挡一道就成了死锁 —— 残留文件反而永远清不掉。
+        uninstall
         ;;
     5)
         check_install && reset_admin
@@ -999,8 +1021,11 @@ show_menu() {
     20)
         ssl_cert_issue_CF
         ;;
+    21)
+        update_shell
+        ;;
     *)
-        LOGE "Please enter the correct number [0-20]"
+        LOGE "Please enter the correct number [0-21]"
         ;;
     esac
 }
@@ -1035,7 +1060,7 @@ if [[ $# > 0 ]]; then
         check_uninstall 0 && install 0
         ;;
     "uninstall")
-        check_install 0 && uninstall 0
+        uninstall 0
         ;;
     *) show_usage ;;
     esac

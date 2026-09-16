@@ -1,14 +1,17 @@
 name: Docker Image CI
-on:
-  push:
-    tags:
-      - "*"
-  workflow_dispatch:
-
-# The workflow pushes images; nothing here writes to the repository.
+# GHCR is published with the built-in GITHUB_TOKEN. (Docker Hub publishing was
+# removed — it needed secrets this fork doesn't set.) Triggers: manual dispatch
+# and tag pushes, mirroring release.yml so a released tag also ships a matching
+# image version stamp.
 permissions:
   contents: read
   packages: write
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "*"
 
 jobs:
   frontend-build:
@@ -48,6 +51,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # Same stamp as release.yml: the embedded panel version must match the
+      # tag, otherwise the image claims the previous release's version. The
+      # backend image is built from this checkout via Dockerfile.frontend-artifact
+      # (COPY . .), so the stamp lives here, not in frontend-build.
+      - name: Stamp version from release tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: printf '%s' "${GITHUB_REF_NAME#v}" > config/version
       - name: Download frontend build artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
@@ -62,8 +73,7 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: |
-            alireza7/s-ui
-            ghcr.io/alireza0/s-ui
+            ghcr.io/wtfdelphia/wtf-s-ui
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -79,11 +89,6 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ matrix.platform }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-${{ matrix.platform }}-
-      - name: Login to Docker Hub
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
       - name: Login to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
@@ -99,8 +104,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: |
-            alireza7/s-ui
-            ghcr.io/alireza0/s-ui
+            ghcr.io/wtfdelphia/wtf-s-ui
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
@@ -127,11 +131,6 @@ jobs:
           path: ${{ runner.temp }}/digests
           pattern: digests-*
           merge-multiple: true
-      - name: Login to Docker Hub
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
       - name: Login to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
@@ -145,8 +144,7 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: |
-            alireza7/s-ui
-            ghcr.io/alireza0/s-ui
+            ghcr.io/wtfdelphia/wtf-s-ui
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -157,7 +155,7 @@ jobs:
         working-directory: ${{ runner.temp }}/digests
         run: |
           set -e
-          for img in alireza7/s-ui ghcr.io/alireza0/s-ui; do
+          for img in ghcr.io/wtfdelphia/wtf-s-ui; do
             TAGS_ARGS=$(echo "$DOCKER_METADATA_OUTPUT_JSON" | jq -cr --arg img "$img" '.tags | map(select(startswith($img))) | map("-t " + .) | join(" ")')
             DIGEST_REFS=$(for f in *; do echo -n "${img}@sha256:$(cat "$f") "; done)
             docker buildx imagetools create $TAGS_ARGS $DIGEST_REFS

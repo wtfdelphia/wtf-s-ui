@@ -33,7 +33,7 @@ Please be respectful and constructive when interacting with maintainers and othe
 ### Clone and Submodules
 
 ```bash
-git clone https://github.com/alireza0/s-ui
+git clone https://github.com/wtfdelphia/wtf-s-ui
 cd s-ui
 git submodule update --init --recursive
 ```
@@ -116,7 +116,7 @@ documents the per-platform deltas (Windows and Docker swap `with_musl` for `with
 ### Docker (optional)
 
 ```bash
-git clone https://github.com/alireza0/s-ui
+git clone https://github.com/wtfdelphia/wtf-s-ui
 cd s-ui
 git submodule update --init --recursive
 docker build -t s-ui .
@@ -224,7 +224,7 @@ go vet ./...
 
 ## Features That Need Help
 
-Community help is especially valuable in these areas. Check the [Issues](https://github.com/alireza0/s-ui/issues) for current tasks and ideas.
+Community help is especially valuable in these areas. Check the [Issues](https://github.com/wtfdelphia/wtf-s-ui/issues) for current tasks and ideas.
 
 ### High-Value Areas
 

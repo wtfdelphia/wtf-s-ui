@@ -27,6 +27,8 @@ func (a *APIHandler) initRouter(g *gin.RouterGroup) {
 			checkLogin(c)
 		}
 	})
+	// Forward to a remote server's APIv2 when X-Remote-Server is set.
+	g.Use(a.ApiService.remoteMiddleware)
 	g.POST("/:postAction", a.postHandler)
 	g.GET("/:getAction", a.getHandler)
 }
@@ -42,6 +44,8 @@ func (a *APIHandler) postHandler(c *gin.Context) {
 		a.ApiService.ChangePass(c)
 	case "save":
 		a.ApiService.Save(c, loginUser)
+	case "updatePanel":
+		a.ApiService.UpdatePanel(c)
 	case "restartApp":
 		a.ApiService.RestartApp(c)
 	case "restartSb":
@@ -79,7 +83,7 @@ func (a *APIHandler) getHandler(c *gin.Context) {
 		a.ApiService.Logout(c)
 	case "load":
 		a.ApiService.LoadData(c)
-	case "inbounds", "outbounds", "endpoints", "services", "tls", "clients", "config":
+	case "inbounds", "outbounds", "endpoints", "services", "tls", "clients", "config", "servers":
 		err := a.ApiService.LoadPartialData(c, []string{action})
 		if err != nil {
 			jsonMsg(c, action, err)
@@ -91,6 +95,8 @@ func (a *APIHandler) getHandler(c *gin.Context) {
 		a.ApiService.GetSettings(c)
 	case "stats":
 		a.ApiService.GetStats(c)
+	case "updateInfo":
+		a.ApiService.GetUpdateInfo(c)
 	case "status":
 		a.ApiService.GetStatus(c)
 	case "onlines":
@@ -111,6 +117,8 @@ func (a *APIHandler) getHandler(c *gin.Context) {
 		a.ApiService.GetSingboxConfig(c)
 	case "checkOutbound":
 		a.ApiService.GetCheckOutbound(c)
+	case "testServer":
+		a.ApiService.TestServer(c)
 	default:
 		jsonMsg(c, "failed", common.NewError("unknown action: ", action))
 	}

@@ -159,6 +159,9 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 			c.Redirect(http.StatusTemporaryRedirect, base_url)
 			return
 		}
+		// index.html references content-hashed assets; never let the browser
+		// serve a stale copy after an upgrade (old UI running on a new binary).
+		c.Header("Cache-Control", "no-store")
 		c.HTML(http.StatusOK, "index.html", gin.H{"BASE_URL": base_url})
 	})
 

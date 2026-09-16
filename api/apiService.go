@@ -28,6 +28,7 @@ type ApiService struct {
 	service.PanelService
 	service.StatsService
 	service.ServerService
+	service.ServerListService
 }
 
 func (a *ApiService) LoadData(c *gin.Context) {
@@ -154,6 +155,12 @@ func (a *ApiService) LoadPartialData(c *gin.Context, objs []string) error {
 				return err
 			}
 			data[obj] = services
+		case "servers":
+			servers, err := a.ServerListService.GetAll()
+			if err != nil {
+				return err
+			}
+			data[obj] = servers
 		case "tls":
 			tlsConfigs, err := a.TlsService.GetAll()
 			if err != nil {
@@ -357,6 +364,20 @@ func (a *ApiService) Save(c *gin.Context, loginUser string) {
 	if err != nil {
 		jsonMsg(c, obj, err)
 	}
+}
+
+// GetUpdateInfo 查线上有没有新版本。查不到(断网、GitHub 不通)只回报错,
+// 不影响面板其它功能 —— 前端拿不到就不显示徽标。
+func (a *ApiService) GetUpdateInfo(c *gin.Context) {
+	info, err := a.PanelService.GetUpdateInfo()
+	jsonObj(c, info, err)
+}
+
+// UpdatePanel 触发面板自更新。更新进程会被甩到面板生命周期之外(systemd-run
+// 或 setsid),所以这个接口返回之后面板才重启,前端能收到这次响应。
+func (a *ApiService) UpdatePanel(c *gin.Context) {
+	err := a.PanelService.StartUpdate()
+	jsonMsg(c, "updatePanel", err)
 }
 
 func (a *ApiService) RestartApp(c *gin.Context) {

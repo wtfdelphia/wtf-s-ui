@@ -33,6 +33,7 @@ func seedEveryTable(t *testing.T) {
 		&model.Stats{DateTime: 1, Resource: "user", Tag: "someone", Direction: true, Traffic: 42},
 		&model.Client{Name: "someone", Enable: true, Config: json.RawMessage(`{}`), Inbounds: json.RawMessage(`[]`), Links: json.RawMessage(`[]`)},
 		&model.Changes{DateTime: 1, Actor: "admin", Key: "clients", Action: "new", Obj: json.RawMessage(`"someone"`)},
+		&model.Server{Name: "test-server", Url: "http://localhost:2095/", Token: "a-server-token", Remark: "seeded for backup coverage"},
 	}
 	for _, row := range rows {
 		if err := db.Create(row).Error; err != nil {
