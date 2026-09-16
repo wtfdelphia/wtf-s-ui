@@ -1,0 +1,2456 @@
+diff --git a/.github/FUNDING.yml b/.github/FUNDING.yml
+deleted file mode 100644
+index ee92348..0000000
+--- a/.github/FUNDING.yml
++++ /dev/null
+@@ -1 +0,0 @@
+-github: alireza0
+diff --git a/.github/workflows/docker.yml b/.github/workflows/docker.yml
+index 591b7d3..7525361 100644
+--- a/.github/workflows/docker.yml
++++ b/.github/workflows/docker.yml
+@@ -1,14 +1,17 @@
+ name: Docker Image CI
++# GHCR is published with the built-in GITHUB_TOKEN. (Docker Hub publishing was
++# removed — it needed secrets this fork doesn't set.) Triggers: manual dispatch
++# and tag pushes, mirroring release.yml so a released tag also ships a matching
++# image version stamp.
++permissions:
++  contents: read
++  packages: write
++
+ on:
++  workflow_dispatch:
+   push:
+     tags:
+       - "*"
+-  workflow_dispatch:
+-
+-# The workflow pushes images; nothing here writes to the repository.
+-permissions:
+-  contents: read
+-  packages: write
+ 
+ jobs:
+   frontend-build:
+@@ -48,6 +51,14 @@ jobs:
+     steps:
+       - name: Checkout repository
+         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
++      # Same stamp as release.yml: the embedded panel version must match the
++      # tag, otherwise the image claims the previous release's version. The
++      # backend image is built from this checkout via Dockerfile.frontend-artifact
++      # (COPY . .), so the stamp lives here, not in frontend-build.
++      - name: Stamp version from release tag
++        if: startsWith(github.ref, 'refs/tags/')
++        shell: bash
++        run: printf '%s' "${GITHUB_REF_NAME#v}" > config/version
+       - name: Download frontend build artifact
+         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+         with:
+@@ -62,8 +73,7 @@ jobs:
+         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+         with:
+           images: |
+-            alireza7/s-ui
+-            ghcr.io/alireza0/s-ui
++            ghcr.io/wtfdelphia/wtf-s-ui
+           tags: |
+             type=ref,event=branch
+             type=ref,event=tag
+@@ -79,11 +89,6 @@ jobs:
+           key: ${{ runner.os }}-buildx-${{ matrix.platform }}-${{ github.sha }}
+           restore-keys: |
+             ${{ runner.os }}-buildx-${{ matrix.platform }}-
+-      - name: Login to Docker Hub
+-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+-        with:
+-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+       - name: Login to GHCR
+         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+         with:
+@@ -99,8 +104,7 @@ jobs:
+           platforms: ${{ matrix.platform }}
+           labels: ${{ steps.meta.outputs.labels }}
+           tags: |
+-            alireza7/s-ui
+-            ghcr.io/alireza0/s-ui
++            ghcr.io/wtfdelphia/wtf-s-ui
+           cache-from: type=local,src=/tmp/.buildx-cache
+           cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
+           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+@@ -127,11 +131,6 @@ jobs:
+           path: ${{ runner.temp }}/digests
+           pattern: digests-*
+           merge-multiple: true
+-      - name: Login to Docker Hub
+-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+-        with:
+-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+       - name: Login to GHCR
+         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+         with:
+@@ -145,8 +144,7 @@ jobs:
+         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+         with:
+           images: |
+-            alireza7/s-ui
+-            ghcr.io/alireza0/s-ui
++            ghcr.io/wtfdelphia/wtf-s-ui
+           tags: |
+             type=ref,event=branch
+             type=ref,event=tag
+@@ -157,7 +155,7 @@ jobs:
+         working-directory: ${{ runner.temp }}/digests
+         run: |
+           set -e
+-          for img in alireza7/s-ui ghcr.io/alireza0/s-ui; do
++          for img in ghcr.io/wtfdelphia/wtf-s-ui; do
+             TAGS_ARGS=$(echo "$DOCKER_METADATA_OUTPUT_JSON" | jq -cr --arg img "$img" '.tags | map(select(startswith($img))) | map("-t " + .) | join(" ")')
+             DIGEST_REFS=$(for f in *; do echo -n "${img}@sha256:$(cat "$f") "; done)
+             docker buildx imagetools create $TAGS_ARGS $DIGEST_REFS
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index 9464614..215801d 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -1,5 +1,8 @@
+ name: Release S-UI
+ 
++permissions:
++  contents: write
++
+ on:
+   workflow_dispatch:
+   release:
+@@ -10,9 +13,6 @@ on:
+     tags:
+       - "*"
+ 
+-permissions:
+-  contents: read
+-
+ env:
+   NODE_VERSION: "26"
+   CRONET_GO_REPO: https://github.com/sagernet/cronet-go.git
+@@ -80,6 +80,11 @@ jobs:
+       - name: Checkout repository
+         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+ 
++      - name: Stamp version from release tag
++        if: startsWith(github.ref, 'refs/tags/')
++        shell: bash
++        run: printf '%s' "${GITHUB_REF_NAME#v}" > config/version
++
+       - name: Download frontend dist
+         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+         with:
+@@ -339,5 +344,8 @@ jobs:
+           tag: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
+           file: dist/*
+           file_glob: true
+-          prerelease: true
++          # Must stay a stable (non-pre) release: install.sh and the panel's
++          # self-update resolve the download URL via the releases/latest API,
++          # which ignores prereleases.
++          prerelease: false
+           overwrite: true
+diff --git a/.gitmodules b/.gitmodules
+index 89c4063..94fbe7c 100644
+--- a/.gitmodules
++++ b/.gitmodules
+@@ -1,4 +1,4 @@
+ [submodule "frontend"]
+ 	path = frontend
+-	url = https://github.com/alireza0/s-ui-frontend
+-	branch = main
++	url = https://github.com/wtfdelphia/wtf-s-ui-frontend
++	branch = dev-custom
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 7944924..1558567 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -33,7 +33,7 @@ Please be respectful and constructive when interacting with maintainers and othe
+ ### Clone and Submodules
+ 
+ ```bash
+-git clone https://github.com/alireza0/s-ui
++git clone https://github.com/wtfdelphia/wtf-s-ui
+ cd s-ui
+ git submodule update --init --recursive
+ ```
+@@ -116,7 +116,7 @@ documents the per-platform deltas (Windows and Docker swap `with_musl` for `with
+ ### Docker (optional)
+ 
+ ```bash
+-git clone https://github.com/alireza0/s-ui
++git clone https://github.com/wtfdelphia/wtf-s-ui
+ cd s-ui
+ git submodule update --init --recursive
+ docker build -t s-ui .
+@@ -224,7 +224,7 @@ go vet ./...
+ 
+ ## Features That Need Help
+ 
+-Community help is especially valuable in these areas. Check the [Issues](https://github.com/alireza0/s-ui/issues) for current tasks and ideas.
++Community help is especially valuable in these areas. Check the [Issues](https://github.com/wtfdelphia/wtf-s-ui/issues) for current tasks and ideas.
+ 
+ ### High-Value Areas
+ 
+diff --git a/README.md b/README.md
+index 0380d4d..167f76b 100644
+--- a/README.md
++++ b/README.md
+@@ -1,307 +1,184 @@
+-# S-UI
+-**An Advanced Web Panel • Built on SagerNet/Sing-Box**
++# S-UI(改版)
+ 
+-![](https://img.shields.io/github/v/release/alireza0/s-ui.svg)
+-![S-UI Docker pull](https://img.shields.io/docker/pulls/alireza7/s-ui.svg)
+-[![Go Report Card](https://goreportcard.com/badge/github.com/alireza0/s-ui)](https://goreportcard.com/report/github.com/alireza0/s-ui)
+-[![Downloads](https://img.shields.io/github/downloads/alireza0/s-ui/total.svg)](https://img.shields.io/github/downloads/alireza0/s-ui/total.svg)
+-[![License](https://img.shields.io/badge/license-GPL%20V3-blue.svg?longCache=true)](https://www.gnu.org/licenses/gpl-3.0.en.html)
+-
+-> **Disclaimer:** This project is only for personal learning and communication, please do not use it for illegal purposes, please do not use it in a production environment
+-
+-**If you think this project is helpful to you, you may wish to give a**:star2:
+-
+-**Want to contribute?** See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding conventions, testing, and the pull request process.
+-
+-[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/alireza7)
+-
+-<a href="https://nowpayments.io/donation/alireza7" target="_blank" rel="noreferrer noopener">
+-   <img src="https://nowpayments.io/images/embeds/donation-button-white.svg" alt="Crypto donation button by NOWPayments">
+-</a>
+-
+-## Quick Overview
+-| Features                               |      Enable?       |
+-| -------------------------------------- | :----------------: |
+-| Multi-Protocol                         | :heavy_check_mark: |
+-| Multi-Language                         | :heavy_check_mark: |
+-| Multi-Client/Inbound                   | :heavy_check_mark: |
+-| Advanced Traffic Routing Interface     | :heavy_check_mark: |
+-| Client & Traffic & System Status       | :heavy_check_mark: |
+-| Subscription Link (link/json/clash + info)| :heavy_check_mark: |
+-| Dark/Light Theme                       | :heavy_check_mark: |
+-| API Interface                          | :heavy_check_mark: |
+-
+-## Supported Platforms
+-| Platform | Architecture | Status |
+-|----------|--------------|---------|
+-| Linux    | amd64, arm64, armv7, armv6, armv5, 386, s390x | ✅ Supported |
+-| Windows  | amd64, 386, arm64 | ✅ Supported |
+-| macOS    | amd64, arm64 | 🚧 Experimental |
+-
+-## Screenshots
++**基于 [SagerNet/sing-box](https://github.com/SagerNet/sing-box) 的高级 Web 面板**
+ 
+-!["Main"](https://github.com/alireza0/s-ui-frontend/raw/main/media/main.png)
++> 本仓库是 [alireza0/s-ui](https://github.com/alireza0/s-ui) 的二次开发分支,在保留上游全部能力的基础上,
++> 增加了以下体验改进:全自动一键安装、面板自更新、协议模板、行内二维码、批量删除、
++> 中转与多节点部署(逐步推进)。
++>
++> 仅供个人学习与交流,请勿用于非法用途,请勿用于生产环境。上游版权归原作者所有。
+ 
+-[Other UI Screenshots](https://github.com/alireza0/s-ui-frontend/blob/main/screenshots.md)
+-
+-## Documentation
++[![License](https://img.shields.io/badge/license-GPL%20V3-blue.svg?longCache=true)](https://www.gnu.org/licenses/gpl-3.0.en.html)
+ 
+-Full documentation lives in the [Wiki](https://github.com/alireza0/s-ui/wiki):
++---
+ 
+-| Page | Contents |
+-|------|----------|
+-| [Subscription Service](https://github.com/alireza0/s-ui/wiki/Subscription-Service) | Subscription URLs, the three formats, response headers |
+-| [Subscription JSON Template](https://github.com/alireza0/s-ui/wiki/Subscription-JSON-Template) | Structure and supported keys of the sing-box subscription template |
+-| [Subscription Clash Template](https://github.com/alireza0/s-ui/wiki/Subscription-Clash-Template) | The Clash.Meta template, proxy groups and filters |
+-| [API Documentation](https://github.com/alireza0/s-ui/wiki/API-Documentation) | The token-authenticated REST API (`/apiv2`) |
+-| [Configuration Objects](https://github.com/alireza0/s-ui/wiki/Configuration-Objects) | Shape of the objects read and written through the API |
+-| [Settings Reference](https://github.com/alireza0/s-ui/wiki/Settings-Reference) | Every panel setting and its default |
++## 快速开始
+ 
+-## Default Installation Information
+-- Panel Port: 2095
+-- Panel Path: /app/
+-- Subscription Port: 2096
+-- Subscription Path: /sub/
+-- User/Password: admin
++### 全自动安装(推荐)
+ 
+-## Install & Upgrade to Latest Version
++一条命令装好,全程无需交互:全自动会自动生成随机管理员账号密码和随机面板路径,装完直接打印访问信息。
+ 
+-### Linux/macOS
+ ```sh
+-bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/master/install.sh)
++SUI_AUTO=1 bash <(curl -Ls https://raw.githubusercontent.com/wtfdelphia/wtf-s-ui/main/install.sh)
+ ```
+ 
+-#### Installer language
+-
+-The installer is available in the same six languages as the panel: `en` (default), `fa`, `ru`, `vi`, `zhcn`, `zhtw`. Choose one with the `SUI_LANG` environment variable (when unset, your system `$LANG` is used as a hint):
+-
+-```sh
+-SUI_LANG=fa bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/master/install.sh)
+-```
++### 交互式安装
+ 
+-### Alpine Linux
+-Alpine uses `apk` and OpenRC instead of `apt`/systemd. The install script detects Alpine automatically and sets up an OpenRC service. Since Alpine has no `bash` by default, install it first:
++想自己一步步设置端口、路径、账号密码,用普通模式:
+ 
+ ```sh
+-apk add bash
+-bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/master/install.sh)
++bash <(curl -Ls https://raw.githubusercontent.com/wtfdelphia/wtf-s-ui/main/install.sh)
+ ```
+ 
+-Manage the service with OpenRC: `rc-service s-ui start|stop|restart` and `rc-update add s-ui default`.
++装好后,在服务器上随时输入 `s-ui` 打开管理菜单(启动/停止/重启、改设置、改账号、SSL 证书、BBR 等)。
+ 
+ ### Windows
+-1. Download the latest Windows release from [GitHub Releases](https://github.com/alireza0/s-ui/releases/latest)
+-2. Extract the ZIP file
+-3. Run `install-windows.bat` as Administrator
+-4. Follow the installation wizard
+ 
+-## Install legacy Version
++1. 从 [Releases](https://github.com/wtfdelphia/wtf-s-ui/releases/latest) 下载最新 Windows 包并解压
++2. 以管理员身份运行 `install-windows.bat`,按向导完成
+ 
+-**Step 1:** To install your desired legacy version, add the version to the end of the installation command. e.g., ver `v1.5.0`:
++---
+ 
+-```sh
+-VERSION=v1.5.0 && bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/$VERSION/install.sh) $VERSION
+-```
++## 默认安装信息
+ 
+-## Manual installation
++| 项目         | 默认值     |
++| ------------ | ---------- |
++| 面板端口     | `2095`     |
++| 面板路径     | `/app/`    |
++| 订阅端口     | `2096`     |
++| 订阅路径     | `/sub/`    |
++| 账号 / 密码  | `admin`    |
+ 
+-### Linux/macOS
+-1. Get the latest version of S-UI based on your OS/Architecture from GitHub: [https://github.com/alireza0/s-ui/releases/latest](https://github.com/alireza0/s-ui/releases/latest)
+-2. **OPTIONAL** Get the latest version of `s-ui.sh` [https://raw.githubusercontent.com/alireza0/s-ui/master/s-ui.sh](https://raw.githubusercontent.com/alireza0/s-ui/master/s-ui.sh)
+-3. **OPTIONAL** Copy `s-ui.sh` to /usr/bin/ and run `chmod +x /usr/bin/s-ui`.
+-4. Extract s-ui tar.gz file to a directory of your choice and navigate to the directory where you extracted the tar.gz file.
+-5. Copy *.service files to /etc/systemd/system/ and run `systemctl daemon-reload`.
+-6. Enable autostart and start S-UI service using `systemctl enable s-ui --now`
+-7. Start sing-box service using `systemctl enable sing-box --now`
++> 全自动安装(`SUI_AUTO=1`)会把账号密码和面板路径换成随机值,请留意安装结束时打印的信息。
++> 升级(已存在数据库)时全自动模式会**保留原有设置**,不会改动你的账号与路径。
+ 
+-### Windows
+-1. Get the latest Windows version from GitHub: [https://github.com/alireza0/s-ui/releases/latest](https://github.com/alireza0/s-ui/releases/latest)
+-2. Download the appropriate Windows package (e.g., `s-ui-windows-amd64.zip`)
+-3. Extract the ZIP file to a directory of your choice
+-4. Run `install-windows.bat` as Administrator
+-5. Follow the installation wizard
+-6. Access the panel at http://localhost:2095/app
++---
+ 
+-## Uninstall S-UI
++## 与上游的差异(本分支在做的事)
+ 
+-### systemd
+-```sh
+-sudo -i
++- **阶段 0 — Fork 基建**:安装/更新脚本全部指向本仓库;CI 按 tag 出 Release 并把版本号写进面板;全自动安装体验。✅
++- **阶段 1 — 一键模板 + 二维码 + 批量删除**:常用协议(VLESS+Reality、Hysteria2 等)一键建好;客户端列表行内出二维码;入站/客户端支持多选批量删除。🚧
++- **阶段 2 — 中转**:粘贴落地分享链接→自动转 outbound→一步配好路由的"添加中转"向导。🚧
++- **阶段 3 — 多节点部署**:以"另一台 S-UI = 一个节点"的方式,中央面板通过 APIv2 令牌远程下发配置、同步流量与心跳。🚧
+ 
+-systemctl disable s-ui  --now
++> 持续跟进上游修复与 sing-box 内核升级,按需回合(不整体合并)。
+ 
+-rm -f /etc/systemd/system/sing-box.service
+-systemctl daemon-reload
++---
+ 
+-rm -fr /usr/local/s-ui
+-rm /usr/bin/s-ui
+-```
++## 支持的平台
+ 
+-### Alpine (OpenRC)
+-```sh
+-rc-service s-ui stop
+-rc-update del s-ui default
+-rm -f /etc/init.d/s-ui
++| 平台    | 架构 | 状态 |
++|---------|------|------|
++| Linux   | amd64 / arm64 / armv7 / armv6 / armv5 / 386 / s390x | ✅ |
++| Windows | amd64 / 386 / arm64 | ✅ |
++| macOS   | amd64 / arm64 | 🚧 实验性 |
+ 
+-rm -fr /usr/local/s-ui
+-rm /usr/bin/s-ui
+-```
++## 功能概览
+ 
+-## Install using Docker
++- 多协议:Mixed、SOCKS、HTTP、Direct、Redirect、TProxy;VLESS、VMess、Trojan、Shadowsocks;ShadowTLS、Hysteria、Hysteria2、Naive、TUIC(支持 XTLS)
++- 入站 / 出站高级配置;流量路由界面(PROXY Protocol、外部/透明代理、SSL、端口)
++- 客户端流量上限与到期时间;在线客户端、流量统计与系统状态监控
++- 订阅服务(link / json / clash,可加外部订阅);面板与订阅 HTTPS
++- 多语言(英语、波斯语、越南语、简体中文、繁体中文、俄语);明暗主题;API 接口
+ 
+-<details>
+-   <summary>Click for details</summary>
++---
+ 
+-### Usage
++## Docker 安装
+ 
+-**Step 1:** Install Docker
++<details>
++<summary>展开</summary>
+ 
+ ```shell
++# 安装 Docker
+ curl -fsSL https://get.docker.com | sh
+-```
+ 
+-**Step 2:** Install S-UI
+-
+-> Docker compose method
+-
+-```shell
+-mkdir s-ui && cd s-ui
+-wget -q https://raw.githubusercontent.com/alireza0/s-ui/master/docker-compose.yml
+-docker compose up -d
+-```
+-
+-> Use docker
+-
+-```shell
++# 运行 S-UI(GHCR 镜像)
+ mkdir s-ui && cd s-ui
+ docker run -itd \
+     -p 2095:2095 -p 2096:2096 -p 443:443 -p 80:80 \
+     -v $PWD/db/:/app/db/ \
+     -v $PWD/cert/:/root/cert/ \
+     --name s-ui --restart=unless-stopped \
+-    alireza7/s-ui:latest
++    ghcr.io/wtfdelphia/wtf-s-ui:latest
+ ```
+ 
+-> Build your own image
++自行构建镜像:
+ 
+ ```shell
+-git clone https://github.com/alireza0/s-ui
+-git submodule update --init --recursive
++git clone --recurse-submodules https://github.com/wtfdelphia/wtf-s-ui
++cd s-ui
+ docker build -t s-ui .
+ ```
+ 
+ </details>
+ 
+-## Manual run ( contribution )
++## 卸载
+ 
+-<details>
+-   <summary>Click for details</summary>
+-
+-### Build and run whole project
+-```shell
+-./runSUI.sh
+-```
++面板还能用的话，直接进管理菜单选卸载：
+ 
+-### Clone the repository
+-```shell
+-# clone repository
+-git clone https://github.com/alireza0/s-ui
+-# clone submodules
+-git submodule update --init --recursive
++```sh
++s-ui        # 菜单里选「卸载」
+ ```
+ 
++### 卸载不掉 / 装到一半失败了怎么办
+ 
+-### - Frontend
+-
+-Visit [s-ui-frontend](https://github.com/alireza0/s-ui-frontend) for frontend code
++安装中途被打断时，面板会处于**装了一半**的状态：文件还在，但菜单可能已经打不开。
++这条**彻底清除**命令不依赖任何已安装的文件：
+ 
+-### - Backend
+-> Please build frontend once before!
+-
+-To build backend:
+-```shell
+-# remove old frontend compiled files
+-rm -fr web/html/*
+-# apply new frontend compiled files
+-cp -R frontend/dist/ web/html/
+-# build
+-go build -o sui main.go
+-```
+-
+-To run backend (from root folder of repository):
+-```shell
+-./sui
++```sh
++bash <(curl -Ls https://raw.githubusercontent.com/wtfdelphia/wtf-s-ui/main/install.sh) purge
+ ```
+ 
+-</details>
+-
+-## Languages
++它会清掉：systemd 服务、`/etc/s-ui/`（含数据库）、`/usr/local/s-ui/`、
++以及 `/usr/bin/s-ui` 管理命令，并杀掉残留进程释放端口。清完可以直接重新安装。
+ 
+-- English
+-- Farsi
+-- Vietnamese
+-- Chinese (Simplified)
+-- Chinese (Traditional)
+-- Russian
++> 注意：**数据库会一起删掉**，入站和用户配置不会保留。
+ 
+-## Features
++---
+ 
+-- Supported protocols:
+-  - General:  Mixed, SOCKS, HTTP, HTTPS, Direct, Redirect, TProxy
+-  - V2Ray based: VLESS, VMess, Trojan, Shadowsocks
+-  - Other protocols: ShadowTLS, Hysteria, Hysteria2, Naive, TUIC
+-- Supports XTLS protocols
+-- An advanced interface for routing traffic, incorporating PROXY Protocol, External, and Transparent Proxy, SSL Certificate, and Port
+-- An advanced interface for inbound and outbound configuration
+-- Clients’ traffic cap and expiration date
+-- Displays online clients, inbounds and outbounds with traffic statistics, and system status monitoring
+-- Subscription service with ability to add external links and subscription
+-- HTTPS for secure access to the web panel and subscription service (self-provided domain + SSL certificate)
+-- Dark/Light theme
+-
+-## Environment Variables
++## 本地开发
+ 
+ <details>
+-  <summary>Click for details</summary>
+-
+-### Usage
+-
+-| Variable       |                      Type                      | Default       |
+-| -------------- | :--------------------------------------------: | :------------ |
+-| SUI_LOG_LEVEL  | `"debug"` \| `"info"` \| `"warn"` \| `"error"` | `"info"`      |
+-| SUI_DEBUG      |                   `boolean`                    | `false`       |
+-| SUI_BIN_FOLDER |                    `string`                    | `"bin"`       |
+-| SUI_DB_FOLDER  |                    `string`                    | `"db"`        |
+-| SINGBOX_API    |                    `string`                    | -             |
+-
+-</details>
+-
+-## SSL Certificate
++<summary>展开</summary>
+ 
+-<details>
+-  <summary>Click for details</summary>
++```shell
++# 克隆(含前端子模块)
++git clone --recurse-submodules https://github.com/wtfdelphia/wtf-s-ui
++cd s-ui
+ 
+-### Certbot
++# 一键构建并运行(前端 + 后端)
++./runSUI.sh
++```
+ 
+-```bash
+-snap install core; snap refresh core
+-snap install --classic certbot
+-ln -s /snap/bin/certbot /usr/bin/certbot
++分步构建:
+ 
+-certbot certonly --standalone --register-unsafely-without-email --non-interactive --agree-tos -d <Your Domain Name>
++```shell
++# 前端
++cd frontend && npm install && npm run build && cd ..
++# 后端(需先构建前端)
++rm -fr web/html/* && cp -R frontend/dist/* web/html/
++go build -o sui main.go
++./sui
+ ```
+ 
++前端代码在独立子模块仓库:[wtfdelphia/wtf-s-ui-frontend](https://github.com/wtfdelphia/wtf-s-ui-frontend)
++
+ </details>
+ 
+-## Third-party Projects
++## 环境变量
+ 
+-Community-made projects built around S-UI. These are not affiliated with or maintained by S-UI — use them at your own discretion:
++| 变量           | 取值                                     | 默认     |
++| -------------- | ---------------------------------------- | -------- |
++| SUI_LOG_LEVEL  | `debug` / `info` / `warn` / `error`      | `info`   |
++| SUI_DEBUG      | `true` / `false`                         | `false`  |
++| SUI_BIN_FOLDER | 字符串                                   | `bin`    |
++| SUI_DB_FOLDER  | 字符串                                   | `db`     |
++| SINGBOX_API    | 字符串                                   | -        |
+ 
+-- [itning/reset-s-ui-traffic](https://github.com/itning/reset-s-ui-traffic) — periodic traffic reset for all users
+-- [zqh2333/s-ui-traffic-reset](https://github.com/zqh2333/s-ui-traffic-reset) — traffic reset tool
+-- [Sownix21/SUI-Bot](https://github.com/Sownix21/SUI-Bot) - telegram bot
++---
+ 
+-> Building something on top of S-UI (a Telegram bot, monitoring, automation, ...)? Open an issue/PR to get it listed here.
++## 致谢
+ 
+-## Stargazers over Time
+-[![Stargazers over time](https://starchart.cc/alireza0/s-ui.svg)](https://starchart.cc/alireza0/s-ui)
++- 上游项目:[alireza0/s-ui](https://github.com/alireza0/s-ui)、[alireza0/s-ui-frontend](https://github.com/alireza0/s-ui-frontend)
++- 内核:[SagerNet/sing-box](https://github.com/SagerNet/sing-box)
++- [API 文档(上游 Wiki)](https://github.com/alireza0/s-ui/wiki/API-Documentation)
+diff --git a/api/apiHandler.go b/api/apiHandler.go
+index fd14070..07ece4e 100644
+--- a/api/apiHandler.go
++++ b/api/apiHandler.go
+@@ -27,6 +27,8 @@ func (a *APIHandler) initRouter(g *gin.RouterGroup) {
+ 			checkLogin(c)
+ 		}
+ 	})
++	// Forward to a remote server's APIv2 when X-Remote-Server is set.
++	g.Use(a.ApiService.remoteMiddleware)
+ 	g.POST("/:postAction", a.postHandler)
+ 	g.GET("/:getAction", a.getHandler)
+ }
+@@ -42,6 +44,8 @@ func (a *APIHandler) postHandler(c *gin.Context) {
+ 		a.ApiService.ChangePass(c)
+ 	case "save":
+ 		a.ApiService.Save(c, loginUser)
++	case "updatePanel":
++		a.ApiService.UpdatePanel(c)
+ 	case "restartApp":
+ 		a.ApiService.RestartApp(c)
+ 	case "restartSb":
+@@ -79,7 +83,7 @@ func (a *APIHandler) getHandler(c *gin.Context) {
+ 		a.ApiService.Logout(c)
+ 	case "load":
+ 		a.ApiService.LoadData(c)
+-	case "inbounds", "outbounds", "endpoints", "services", "tls", "clients", "config":
++	case "inbounds", "outbounds", "endpoints", "services", "tls", "clients", "config", "servers":
+ 		err := a.ApiService.LoadPartialData(c, []string{action})
+ 		if err != nil {
+ 			jsonMsg(c, action, err)
+@@ -91,6 +95,8 @@ func (a *APIHandler) getHandler(c *gin.Context) {
+ 		a.ApiService.GetSettings(c)
+ 	case "stats":
+ 		a.ApiService.GetStats(c)
++	case "updateInfo":
++		a.ApiService.GetUpdateInfo(c)
+ 	case "status":
+ 		a.ApiService.GetStatus(c)
+ 	case "onlines":
+@@ -111,6 +117,8 @@ func (a *APIHandler) getHandler(c *gin.Context) {
+ 		a.ApiService.GetSingboxConfig(c)
+ 	case "checkOutbound":
+ 		a.ApiService.GetCheckOutbound(c)
++	case "testServer":
++		a.ApiService.TestServer(c)
+ 	default:
+ 		jsonMsg(c, "failed", common.NewError("unknown action: ", action))
+ 	}
+diff --git a/api/apiService.go b/api/apiService.go
+index 6480734..153c3da 100644
+--- a/api/apiService.go
++++ b/api/apiService.go
+@@ -28,6 +28,7 @@ type ApiService struct {
+ 	service.PanelService
+ 	service.StatsService
+ 	service.ServerService
++	service.ServerListService
+ }
+ 
+ func (a *ApiService) LoadData(c *gin.Context) {
+@@ -154,6 +155,12 @@ func (a *ApiService) LoadPartialData(c *gin.Context, objs []string) error {
+ 				return err
+ 			}
+ 			data[obj] = services
++		case "servers":
++			servers, err := a.ServerListService.GetAll()
++			if err != nil {
++				return err
++			}
++			data[obj] = servers
+ 		case "tls":
+ 			tlsConfigs, err := a.TlsService.GetAll()
+ 			if err != nil {
+@@ -359,6 +366,20 @@ func (a *ApiService) Save(c *gin.Context, loginUser string) {
+ 	}
+ }
+ 
++// GetUpdateInfo 查线上有没有新版本。查不到(断网、GitHub 不通)只回报错,
++// 不影响面板其它功能 —— 前端拿不到就不显示徽标。
++func (a *ApiService) GetUpdateInfo(c *gin.Context) {
++	info, err := a.PanelService.GetUpdateInfo()
++	jsonObj(c, info, err)
++}
++
++// UpdatePanel 触发面板自更新。更新进程会被甩到面板生命周期之外(systemd-run
++// 或 setsid),所以这个接口返回之后面板才重启,前端能收到这次响应。
++func (a *ApiService) UpdatePanel(c *gin.Context) {
++	err := a.PanelService.StartUpdate()
++	jsonMsg(c, "updatePanel", err)
++}
++
+ func (a *ApiService) RestartApp(c *gin.Context) {
+ 	err := a.PanelService.RestartPanel(3 * time.Second)
+ 	jsonMsg(c, "restartApp", err)
+diff --git a/api/apiV2Handler.go b/api/apiV2Handler.go
+index e84002f..b6621f0 100644
+--- a/api/apiV2Handler.go
++++ b/api/apiV2Handler.go
+@@ -77,7 +77,7 @@ func (a *APIv2Handler) getHandler(c *gin.Context) {
+ 	switch action {
+ 	case "load":
+ 		a.ApiService.LoadData(c)
+-	case "inbounds", "outbounds", "endpoints", "services", "tls", "clients", "config":
++	case "inbounds", "outbounds", "endpoints", "services", "tls", "clients", "config", "servers":
+ 		err := a.ApiService.LoadPartialData(c, []string{action})
+ 		if err != nil {
+ 			jsonMsg(c, action, err)
+diff --git a/api/remote.go b/api/remote.go
+new file mode 100644
+index 0000000..0ed36dc
+--- /dev/null
++++ b/api/remote.go
+@@ -0,0 +1,171 @@
++package api
++
++import (
++	"bytes"
++	"encoding/json"
++	"io"
++	"net/http"
++	"net/url"
++	"path"
++	"strconv"
++	"strings"
++	"time"
++
++	"github.com/alireza0/s-ui/util/common"
++
++	"github.com/gin-gonic/gin"
++)
++
++// Actions that always run on the central panel itself, never proxied to a
++// remote: the server registry, authentication and token management.
++var remoteLocalOnly = map[string]bool{
++	"servers":     true,
++	"testServer":  true,
++	"login":       true,
++	"logout":      true,
++	"tokens":      true,
++	"addToken":    true,
++	"deleteToken": true,
++	"changePass":  true,
++}
++
++// remoteMiddleware forwards a request to a remote server's APIv2 (token auth)
++// when it carries an X-Remote-Server header, so the central panel can manage
++// other s-ui instances with the same UI. Local-only actions are never proxied.
++func (a *ApiService) remoteMiddleware(c *gin.Context) {
++	serverId := c.GetHeader("X-Remote-Server")
++	if serverId == "" {
++		return
++	}
++	action := path.Base(c.Request.URL.Path)
++	if remoteLocalOnly[action] {
++		return
++	}
++	// The server registry is a central-panel concept, but its writes go through
++	// the generic "save" action (object=servers lives in the body, invisible to
++	// the action check above). Without this they'd be proxied to the remote and
++	// never touch the local table -- the delete "succeeds" remotely (or 404s) yet
++	// the entry stays. Peek the object and keep servers writes local.
++	if action == "save" && peekFormValue(c, "object") == "servers" {
++		return
++	}
++	a.proxyToRemote(c, serverId, action)
++	c.Abort()
++}
++
++// peekFormValue reads one urlencoded form field without consuming the body for
++// later handlers: it buffers the body, parses a copy, then restores the body so
++// a genuinely proxied request still forwards its full payload.
++func peekFormValue(c *gin.Context, key string) string {
++	if c.Request.Body == nil {
++		return ""
++	}
++	b, err := io.ReadAll(c.Request.Body)
++	c.Request.Body = io.NopCloser(bytes.NewReader(b))
++	if err != nil {
++		return ""
++	}
++	vals, err := url.ParseQuery(string(b))
++	if err != nil {
++		return ""
++	}
++	return vals.Get(key)
++}
++
++func (a *ApiService) proxyToRemote(c *gin.Context, serverId string, action string) {
++	server, err := a.ServerListService.GetById(serverId)
++	if err != nil || server.Url == "" {
++		jsonMsg(c, "", common.NewError("remote server not found"))
++		return
++	}
++
++	base := server.Url
++	if !strings.HasSuffix(base, "/") {
++		base += "/"
++	}
++	target := base + "apiv2/" + action
++	if c.Request.URL.RawQuery != "" {
++		target += "?" + c.Request.URL.RawQuery
++	}
++
++	var body io.Reader
++	if c.Request.Method == http.MethodPost {
++		b, _ := io.ReadAll(c.Request.Body)
++		body = bytes.NewReader(b)
++	}
++	req, err := http.NewRequest(c.Request.Method, target, body)
++	if err != nil {
++		jsonMsg(c, "", err)
++		return
++	}
++	req.Header.Set("Token", server.Token)
++	if ct := c.Request.Header.Get("Content-Type"); ct != "" {
++		req.Header.Set("Content-Type", ct)
++	}
++
++	client := &http.Client{Timeout: 30 * time.Second}
++	resp, err := client.Do(req)
++	if err != nil {
++		jsonMsg(c, "", err)
++		return
++	}
++	defer resp.Body.Close()
++
++	respBody, _ := io.ReadAll(resp.Body)
++	contentType := resp.Header.Get("Content-Type")
++	if contentType == "" {
++		contentType = "application/json"
++	}
++	c.Data(resp.StatusCode, contentType, respBody)
++}
++
++// TestServer probes a registered remote server by calling its APIv2 status
++// endpoint with the stored token, measuring round-trip latency. It returns
++// {online, latency, error} so the UI can confirm the server link actually works.
++func (a *ApiService) TestServer(c *gin.Context) {
++	id := c.Query("id")
++	server, err := a.ServerListService.GetById(id)
++	if err != nil || server == nil || server.Url == "" {
++		jsonObj(c, gin.H{"online": false, "error": "server not found"}, nil)
++		return
++	}
++
++	base := server.Url
++	if !strings.HasSuffix(base, "/") {
++		base += "/"
++	}
++
++	req, err := http.NewRequest(http.MethodGet, base+"apiv2/status", nil)
++	if err != nil {
++		jsonObj(c, gin.H{"online": false, "error": err.Error()}, nil)
++		return
++	}
++	req.Header.Set("Token", server.Token)
++
++	client := &http.Client{Timeout: 8 * time.Second}
++	start := time.Now()
++	resp, err := client.Do(req)
++	latency := time.Since(start).Milliseconds()
++	if err != nil {
++		jsonObj(c, gin.H{"online": false, "error": "unreachable"}, nil)
++		return
++	}
++	defer resp.Body.Close()
++
++	if resp.StatusCode != http.StatusOK {
++		jsonObj(c, gin.H{"online": false, "latency": latency, "error": "http " + strconv.Itoa(resp.StatusCode)}, nil)
++		return
++	}
++
++	body, _ := io.ReadAll(resp.Body)
++	var parsed struct {
++		Success bool `json:"success"`
++	}
++	_ = json.Unmarshal(body, &parsed)
++	if !parsed.Success {
++		jsonObj(c, gin.H{"online": false, "latency": latency, "error": "bad token"}, nil)
++		return
++	}
++
++	jsonObj(c, gin.H{"online": true, "latency": latency}, nil)
++}
+diff --git a/build.sh b/build.sh
+index b680f98..8f32401 100755
+--- a/build.sh
++++ b/build.sh
+@@ -21,4 +21,12 @@ cp -R frontend/dist/* web/html/
+ TAGS=$(tags_for dev)
+ LDFLAGS=$(ldflags_for dev)
+ 
+-go build -ldflags "$LDFLAGS -extldflags \"-Wl,-no_warn_duplicate_libraries\"" -tags "$TAGS" -o sui main.go
++# Platform-specific external linker flags: the macOS linker wants
++# -no_warn_duplicate_libraries; the release CI links statically against musl
++# (done by CI with a musl toolchain). For a local dev build on glibc we just
++# do a plain dynamic link — the static flag needs musl and cgo breaks on it.
++if [ "$(uname)" = "Darwin" ]; then
++    go build -ldflags "$LDFLAGS -extldflags -Wl,-no_warn_duplicate_libraries" -tags "$TAGS" -o sui main.go
++else
++    go build -ldflags "$LDFLAGS" -tags "$TAGS" -o sui main.go
++fi
+diff --git a/cmd/cmd.go b/cmd/cmd.go
+index 3453fff..9a49fa4 100644
+--- a/cmd/cmd.go
++++ b/cmd/cmd.go
+@@ -17,6 +17,12 @@ func ParseCmd() {
+ 	adminCmd := flag.NewFlagSet("admin", flag.ExitOnError)
+ 	settingCmd := flag.NewFlagSet("setting", flag.ExitOnError)
+ 	backupCmd := flag.NewFlagSet("backup", flag.ExitOnError)
++	tokenCmd := flag.NewFlagSet("token", flag.ExitOnError)
++
++	var tokenDesc string
++	var tokenNew bool
++	tokenCmd.StringVar(&tokenDesc, "desc", "", "token description")
++	tokenCmd.BoolVar(&tokenNew, "new", false, "force a new token instead of reusing an existing one")
+ 
+ 	var username string
+ 	var password string
+@@ -50,6 +56,7 @@ func ParseCmd() {
+ 		fmt.Println()
+ 		fmt.Println("Commands:")
+ 		fmt.Println("    admin          set/reset/show first admin credentials")
++		fmt.Println("    token          generate an APIv2 token (for central management)")
+ 		fmt.Println("    uri            Show panel URI")
+ 		fmt.Println("    migrate        migrate form older version")
+ 		fmt.Println("    setting        set/reset/show settings")
+@@ -95,6 +102,14 @@ func ParseCmd() {
+ 			showAdmin()
+ 		}
+ 
++	case "token":
++		err := tokenCmd.Parse(os.Args[2:])
++		if err != nil {
++			fmt.Println(err)
++			return
++		}
++		genToken(tokenDesc, tokenNew)
++
+ 	case "uri":
+ 		getPanelURI()
+ 
+diff --git a/cmd/token.go b/cmd/token.go
+new file mode 100644
+index 0000000..4fd8639
+--- /dev/null
++++ b/cmd/token.go
+@@ -0,0 +1,40 @@
++package cmd
++
++import (
++	"fmt"
++	"os"
++
++	"github.com/alireza0/s-ui/config"
++	"github.com/alireza0/s-ui/database"
++	"github.com/alireza0/s-ui/service"
++)
++
++// genToken prints an APIv2 token for the first admin to stdout (errors go to
++// stderr, so install scripts can capture the token). By default it reuses an
++// existing token if there is one; forceNew always creates a fresh one.
++func genToken(desc string, forceNew bool) {
++	if err := database.InitDB(config.GetDBPath()); err != nil {
++		fmt.Fprintln(os.Stderr, err)
++		return
++	}
++	userService := service.UserService{}
++	user, err := userService.GetFirstUser()
++	if err != nil {
++		fmt.Fprintln(os.Stderr, "get user failed:", err)
++		return
++	}
++	if desc == "" {
++		desc = "cli"
++	}
++	var token string
++	if forceNew {
++		token, err = userService.AddToken(user.Username, 0, desc)
++	} else {
++		token, err = userService.GetOrCreateToken(user.Username, desc)
++	}
++	if err != nil {
++		fmt.Fprintln(os.Stderr, "generate token failed:", err)
++		return
++	}
++	fmt.Println(token)
++}
+diff --git a/database/backup_test.go b/database/backup_test.go
+index 0c95d63..39a430d 100644
+--- a/database/backup_test.go
++++ b/database/backup_test.go
+@@ -33,6 +33,7 @@ func seedEveryTable(t *testing.T) {
+ 		&model.Stats{DateTime: 1, Resource: "user", Tag: "someone", Direction: true, Traffic: 42},
+ 		&model.Client{Name: "someone", Enable: true, Config: json.RawMessage(`{}`), Inbounds: json.RawMessage(`[]`), Links: json.RawMessage(`[]`)},
+ 		&model.Changes{DateTime: 1, Actor: "admin", Key: "clients", Action: "new", Obj: json.RawMessage(`"someone"`)},
++		&model.Server{Name: "test-server", Url: "http://localhost:2095/", Token: "a-server-token", Remark: "seeded for backup coverage"},
+ 	}
+ 	for _, row := range rows {
+ 		if err := db.Create(row).Error; err != nil {
+diff --git a/database/model/server.go b/database/model/server.go
+new file mode 100644
+index 0000000..3c3049c
+--- /dev/null
++++ b/database/model/server.go
+@@ -0,0 +1,12 @@
++package model
++
++// Server is a saved panel address — a "launcher" entry for another panel
++// (this fork, 3x-ui, anything). Clicking it just opens the URL in a new tab.
++type Server struct {
++	Id   uint   `json:"id" form:"id" gorm:"primaryKey;autoIncrement"`
++	Name string `json:"name" form:"name"`
++	Url  string `json:"url" form:"url"`
++	// Token is the remote s-ui APIv2 token used for central management.
++	Token  string `json:"token" form:"token"`
++	Remark string `json:"remark" form:"remark"`
++}
+diff --git a/database/schema.go b/database/schema.go
+index 36f59fb..871b7ca 100644
+--- a/database/schema.go
++++ b/database/schema.go
+@@ -31,6 +31,7 @@ func schema() []table {
+ 		{"stats", &model.Stats{}, copyRows[model.Stats]},
+ 		{"clients", &model.Client{}, copyRows[model.Client]},
+ 		{"changes", &model.Changes{}, copyRows[model.Changes]},
++		{"servers", &model.Server{}, copyRows[model.Server]},
+ 	}
+ }
+ 
+diff --git a/frontend b/frontend
+index f859e16..edeac95 160000
+--- a/frontend
++++ b/frontend
+@@ -1 +1 @@
+-Subproject commit f859e16953cd733293618f626cc19b8466e00fd3
++Subproject commit edeac953f730c9423b2790ea04aeaea4014a9225
+diff --git a/install.sh b/install.sh
+index 0b835eb..4cf2d98 100755
+--- a/install.sh
++++ b/install.sh
+@@ -7,291 +7,130 @@ plain='\033[0m'
+ 
+ cur_dir=$(pwd)
+ 
+-#############################################
+-# Localization
+-#
+-# The installer speaks the six languages of the panel UI:
+-#   en (default), fa, ru, vi, zhcn, zhtw
+-# Pick one with the SUI_LANG environment variable, e.g.
+-#   SUI_LANG=fa bash <(curl -Ls .../install.sh)
+-# When SUI_LANG is unset the system $LANG is used as a hint.
+-#
+-# Messages are stored in flat variables (MSG_<lang>_<key>) and read through
+-# indirect expansion so the script also works on the older bash 3.2.
+-#############################################
+-
+-detect_lang() {
+-    local l="${SUI_LANG:-}"
+-    if [[ -z "$l" ]]; then
+-        case "${LANG:-}" in
+-        fa*) l=fa ;;
+-        ru*) l=ru ;;
+-        vi*) l=vi ;;
+-        zh_TW* | zh_HK* | zh-TW*) l=zhtw ;;
+-        zh*) l=zhcn ;;
+-        *) l=en ;;
+-        esac
++# Full-auto is the DEFAULT install mode: every command runs start-to-finish with
++# no prompts. On a fresh install it generates random admin credentials + a random
++# panel path + free ports + an API token and opens the firewall, then prints the
++# access info; on an upgrade it keeps existing settings untouched. To get the old
++# interactive flow back, set SUI_AUTO=0 (or n). Examples:
++#   bash <(curl -Ls https://raw.githubusercontent.com/wtfdelphia/wtf-s-ui/main/install.sh)            # auto (default)
++#   SUI_AUTO=0 bash <(curl -Ls https://raw.githubusercontent.com/wtfdelphia/wtf-s-ui/main/install.sh) # interactive
++SUI_AUTO="${SUI_AUTO:-1}"
++
++is_auto() {
++    [[ "$SUI_AUTO" != "0" && "$SUI_AUTO" != "n" && "$SUI_AUTO" != "N" ]]
++}
++
++# auto_read VAR DEFAULT PROMPT
++# In auto mode: assign DEFAULT to VAR (caller scope) and echo the choice.
++# Otherwise behave like the plain `read -rp PROMPT VAR` it replaces.
++auto_read() {
++    local __av="$1" __ad="$2" __ap="$3"
++    if is_auto; then
++        printf -v "$__av" '%s' "$__ad"
++        echo -e "${yellow}[auto]${plain} ${__ap}${__ad}"
++    else
++        read -rp "$__ap" "$__av"
+     fi
+-    case "$l" in
+-    fa | ru | vi | zhcn | zhtw | en) ;;
+-    zh-cn | zh_cn | zhCN) l=zhcn ;;
+-    zh-tw | zh_tw | zhTW) l=zhtw ;;
+-    *) l=en ;;
+-    esac
+-    echo "$l"
+ }
+-lang=$(detect_lang)
+-
+-# d <lang> <key> <text> — define a localized message.
+-d() { eval "MSG_${1}_${2}=\$3"; }
+-
+-d en root_err "Please run this script with root privilege"
+-d en os_fail "Failed to check the system OS, please contact the author!"
+-d en os_release "The OS release is:"
+-d en unsupported_arch "Unsupported CPU architecture!"
+-d en installing_base "Installing required packages..."
+-d en migrating "Migration..."
+-d en finished_modify "Install/update finished! For security it's recommended to modify panel settings"
+-d en ask_modify "Do you want to continue with the modification [y/n]? "
+-d en enter_port "Enter the panel port (leave blank for existing/default value):"
+-d en enter_path "Enter the panel path (leave blank for existing/default value):"
+-d en enter_subport "Enter the subscription port (leave blank for existing/default value):"
+-d en enter_subpath "Enter the subscription path (leave blank for existing/default value):"
+-d en initializing "Initializing, please wait..."
+-d en ask_admin "Do you want to change admin credentials [y/n]? "
+-d en set_user "Please set up your username: "
+-d en set_pass "Please set up your password: "
+-d en checksum_ok "Checksum verified."
+-d en checksum_fail "Checksum does NOT match. The download may be corrupt or tampered with. Aborting."
+-d en no_checksums "No SHA256SUMS published for this release; skipping checksum verification."
+-d en creds_empty "Username and password can not be empty."
+-d en creds_failed "Failed to set the admin credentials."
+-d en current_creds "Your current admin credentials:"
+-d en cancelled "cancel..."
+-d en fresh_random "this is a fresh installation, will generate random login info for security concerns:"
+-d en forgot_info "if you forgot your login info, you can type s-ui for configuration menu"
+-d en upgrade_keep "this is your upgrade, will keep old settings. If you forgot your login info, you can type s-ui for configuration menu"
+-d en stopping_singbox "Stopping sing-box service..."
+-d en bin_exists "directory exists yet! Please check the content and delete it manually after migration"
+-d en got_version "Got s-ui latest version: %s, beginning the installation..."
+-d en fetch_fail "Failed to fetch s-ui version, it maybe due to Github API restrictions, please try it later"
+-d en download_fail "Downloading s-ui failed, please be sure that your server can access Github"
+-d en begin_install "Beginning the install s-ui v%s"
+-d en download_ver_fail "download s-ui v%s failed, please check the version exists"
+-d en extract_fail "Extracting s-ui failed, the archive may be corrupt or the disk is full"
+-d en broken_bin "The installed s-ui binary does not run, the installation is incomplete"
+-d en install_finished "installation finished, it is up and running now..."
+-d en access_panel "You may access the Panel with following URL(s):"
+-d en executing "Executing..."
+-
+-d fa root_err "لطفاً این اسکریپت را با دسترسی root اجرا کنید"
+-d fa os_fail "تشخیص سیستم عامل ناموفق بود، لطفاً با سازنده تماس بگیرید!"
+-d fa os_release "نسخهٔ سیستم عامل:"
+-d fa unsupported_arch "معماری پردازنده پشتیبانی نمی شود!"
+-d fa installing_base "در حال نصب پکیج های موردنیاز..."
+-d fa migrating "در حال مهاجرت پایگاه داده..."
+-d fa finished_modify "نصب/به روزرسانی به پایان رسید! برای امنیت بهتر است تنظیمات پنل را تغییر دهید"
+-d fa ask_modify "آیا می خواهید تنظیمات را تغییر دهید [y/n]؟ "
+-d fa enter_port "پورت پنل را وارد کنید (برای مقدار فعلی/پیش فرض خالی بگذارید):"
+-d fa enter_path "مسیر پنل را وارد کنید (برای مقدار فعلی/پیش فرض خالی بگذارید):"
+-d fa enter_subport "پورت اشتراک (subscription) را وارد کنید (برای مقدار فعلی/پیش فرض خالی بگذارید):"
+-d fa enter_subpath "مسیر اشتراک (subscription) را وارد کنید (برای مقدار فعلی/پیش فرض خالی بگذارید):"
+-d fa initializing "در حال آماده سازی، لطفاً صبر کنید..."
+-d fa ask_admin "آیا می خواهید نام کاربری و رمز ادمین را تغییر دهید [y/n]؟ "
+-d fa set_user "نام کاربری خود را وارد کنید: "
+-d fa set_pass "رمز عبور خود را وارد کنید: "
+-d fa checksum_ok "صحت فایل تایید شد."
+-d fa checksum_fail "مقدار checksum مطابقت ندارد. فایل دانلودشده خراب یا دستکاری شده است. عملیات متوقف شد."
+-d fa no_checksums "برای این نسخه فایل SHA256SUMS منتشر نشده؛ بررسی checksum انجام نشد."
+-d fa creds_empty "نام کاربری و رمز عبور نمی‌توانند خالی باشند."
+-d fa creds_failed "تنظیم نام کاربری و رمز ادمین ناموفق بود."
+-d fa current_creds "اطلاعات ورود ادمین فعلی شما:"
+-d fa cancelled "لغو شد..."
+-d fa fresh_random "این یک نصب تازه است؛ برای امنیت، اطلاعات ورود تصادفی ساخته می شود:"
+-d fa forgot_info "اگر اطلاعات ورود را فراموش کردید، دستور s-ui را برای منوی تنظیمات اجرا کنید"
+-d fa upgrade_keep "این یک ارتقا است و تنظیمات قبلی حفظ می شود. اگر اطلاعات ورود را فراموش کردید، دستور s-ui را برای منوی تنظیمات اجرا کنید"
+-d fa stopping_singbox "در حال متوقف کردن سرویس sing-box..."
+-d fa bin_exists "پوشه هنوز وجود دارد! لطفاً محتوای آن را بررسی و پس از مهاجرت به صورت دستی حذف کنید"
+-d fa got_version "آخرین نسخهٔ s-ui دریافت شد: %s، شروع نصب..."
+-d fa fetch_fail "دریافت نسخهٔ s-ui ناموفق بود؛ ممکن است به دلیل محدودیت های Github API باشد، بعداً دوباره تلاش کنید"
+-d fa download_fail "دانلود s-ui ناموفق بود؛ مطمئن شوید سرور شما به Github دسترسی دارد"
+-d fa begin_install "شروع نصب s-ui نسخهٔ v%s"
+-d fa download_ver_fail "دانلود s-ui نسخهٔ v%s ناموفق بود؛ لطفاً از وجود این نسخه مطمئن شوید"
+-d fa extract_fail "استخراج s-ui ناموفق بود؛ ممکن است فایل خراب باشد یا فضای دیسک پر باشد"
+-d fa broken_bin "باینری نصب‌شدهٔ s-ui اجرا نمی‌شود؛ نصب ناقص است"
+-d fa install_finished "نصب به پایان رسید و هم اکنون در حال اجراست..."
+-d fa access_panel "می توانید از طریق آدرس (های) زیر به پنل دسترسی داشته باشید:"
+-d fa executing "در حال اجرا..."
+-
+-d ru root_err "Пожалуйста, запустите этот скрипт с правами root"
+-d ru os_fail "Не удалось определить ОС, пожалуйста, свяжитесь с автором!"
+-d ru os_release "Версия ОС:"
+-d ru unsupported_arch "Неподдерживаемая архитектура процессора!"
+-d ru installing_base "Установка необходимых пакетов..."
+-d ru migrating "Миграция..."
+-d ru finished_modify "Установка/обновление завершено! В целях безопасности рекомендуется изменить настройки панели"
+-d ru ask_modify "Хотите изменить настройки [y/n]? "
+-d ru enter_port "Введите порт панели (оставьте пустым для текущего/значения по умолчанию):"
+-d ru enter_path "Введите путь панели (оставьте пустым для текущего/значения по умолчанию):"
+-d ru enter_subport "Введите порт подписки (оставьте пустым для текущего/значения по умолчанию):"
+-d ru enter_subpath "Введите путь подписки (оставьте пустым для текущего/значения по умолчанию):"
+-d ru initializing "Инициализация, пожалуйста, подождите..."
+-d ru ask_admin "Хотите изменить учётные данные администратора [y/n]? "
+-d ru set_user "Задайте имя пользователя: "
+-d ru set_pass "Задайте пароль: "
+-d ru checksum_ok "Контрольная сумма проверена."
+-d ru checksum_fail "Контрольная сумма не совпадает. Файл повреждён или подменён. Прерывание."
+-d ru no_checksums "Для этого релиза нет SHA256SUMS; проверка контрольной суммы пропущена."
+-d ru creds_empty "Имя пользователя и пароль не могут быть пустыми."
+-d ru creds_failed "Не удалось задать учётные данные администратора."
+-d ru current_creds "Ваши текущие учётные данные администратора:"
+-d ru cancelled "отмена..."
+-d ru fresh_random "это новая установка, в целях безопасности будут сгенерированы случайные данные для входа:"
+-d ru forgot_info "если вы забыли данные для входа, введите s-ui для меню настроек"
+-d ru upgrade_keep "это обновление, старые настройки сохранятся. Если вы забыли данные для входа, введите s-ui для меню настроек"
+-d ru stopping_singbox "Остановка службы sing-box..."
+-d ru bin_exists "каталог всё ещё существует! Проверьте содержимое и удалите его вручную после миграции"
+-d ru got_version "Получена последняя версия s-ui: %s, начинается установка..."
+-d ru fetch_fail "Не удалось получить версию s-ui, возможно из-за ограничений Github API, попробуйте позже"
+-d ru download_fail "Не удалось загрузить s-ui, убедитесь, что ваш сервер имеет доступ к Github"
+-d ru begin_install "Начинается установка s-ui v%s"
+-d ru download_ver_fail "загрузка s-ui v%s не удалась, проверьте существование этой версии"
+-d ru extract_fail "Не удалось распаковать s-ui: архив повреждён или на диске нет места"
+-d ru broken_bin "Установленный файл s-ui не запускается, установка неполная"
+-d ru install_finished "установка завершена, панель запущена и работает..."
+-d ru access_panel "Вы можете получить доступ к панели по следующим URL:"
+-d ru executing "Выполнение..."
+-
+-d vi root_err "Vui lòng chạy tập lệnh này với quyền root"
+-d vi os_fail "Không thể xác định hệ điều hành, vui lòng liên hệ tác giả!"
+-d vi os_release "Phiên bản hệ điều hành:"
+-d vi unsupported_arch "Kiến trúc CPU không được hỗ trợ!"
+-d vi installing_base "Đang cài đặt các gói cần thiết..."
+-d vi migrating "Đang di trú..."
+-d vi finished_modify "Cài đặt/cập nhật hoàn tất! Vì bảo mật, bạn nên chỉnh sửa cài đặt bảng điều khiển"
+-d vi ask_modify "Bạn có muốn tiếp tục chỉnh sửa [y/n]? "
+-d vi enter_port "Nhập cổng bảng điều khiển (để trống để giữ giá trị hiện tại/mặc định):"
+-d vi enter_path "Nhập đường dẫn bảng điều khiển (để trống để giữ giá trị hiện tại/mặc định):"
+-d vi enter_subport "Nhập cổng subscription (để trống để giữ giá trị hiện tại/mặc định):"
+-d vi enter_subpath "Nhập đường dẫn subscription (để trống để giữ giá trị hiện tại/mặc định):"
+-d vi initializing "Đang khởi tạo, vui lòng đợi..."
+-d vi ask_admin "Bạn có muốn thay đổi thông tin đăng nhập quản trị [y/n]? "
+-d vi set_user "Vui lòng đặt tên người dùng: "
+-d vi set_pass "Vui lòng đặt mật khẩu: "
+-d vi checksum_ok "Đã xác minh checksum."
+-d vi checksum_fail "Checksum KHÔNG khớp. Tệp tải về có thể bị hỏng hoặc bị can thiệp. Đang hủy."
+-d vi no_checksums "Bản phát hành này không có SHA256SUMS; bỏ qua xác minh checksum."
+-d vi creds_empty "Tên đăng nhập và mật khẩu không được để trống."
+-d vi creds_failed "Không thể đặt thông tin đăng nhập quản trị."
+-d vi current_creds "Thông tin đăng nhập quản trị hiện tại của bạn:"
+-d vi cancelled "đã hủy..."
+-d vi fresh_random "đây là cài đặt mới, sẽ tạo thông tin đăng nhập ngẫu nhiên vì lý do bảo mật:"
+-d vi forgot_info "nếu bạn quên thông tin đăng nhập, hãy gõ s-ui để mở menu cấu hình"
+-d vi upgrade_keep "đây là bản nâng cấp, cài đặt cũ sẽ được giữ lại. Nếu quên thông tin đăng nhập, hãy gõ s-ui để mở menu cấu hình"
+-d vi stopping_singbox "Đang dừng dịch vụ sing-box..."
+-d vi bin_exists "thư mục vẫn tồn tại! Vui lòng kiểm tra nội dung và xóa thủ công sau khi di trú"
+-d vi got_version "Đã lấy phiên bản s-ui mới nhất: %s, bắt đầu cài đặt..."
+-d vi fetch_fail "Không thể lấy phiên bản s-ui, có thể do giới hạn của Github API, vui lòng thử lại sau"
+-d vi download_fail "Tải s-ui thất bại, hãy chắc chắn máy chủ của bạn có thể truy cập Github"
+-d vi begin_install "Bắt đầu cài đặt s-ui v%s"
+-d vi download_ver_fail "tải s-ui v%s thất bại, vui lòng kiểm tra phiên bản có tồn tại không"
+-d vi extract_fail "Giải nén s-ui thất bại, tệp có thể bị hỏng hoặc đĩa đã đầy"
+-d vi broken_bin "Tệp s-ui đã cài đặt không chạy được, quá trình cài đặt chưa hoàn tất"
+-d vi install_finished "cài đặt hoàn tất, hiện đang chạy..."
+-d vi access_panel "Bạn có thể truy cập bảng điều khiển qua (các) URL sau:"
+-d vi executing "Đang thực thi..."
+-
+-d zhcn root_err "请使用 root 权限运行此脚本"
+-d zhcn os_fail "无法检测系统操作系统，请联系作者！"
+-d zhcn os_release "操作系统版本："
+-d zhcn unsupported_arch "不支持的 CPU 架构！"
+-d zhcn installing_base "正在安装所需软件包..."
+-d zhcn migrating "正在迁移..."
+-d zhcn finished_modify "安装/更新完成！为了安全，建议修改面板设置"
+-d zhcn ask_modify "是否继续修改设置 [y/n]？ "
+-d zhcn enter_port "请输入面板端口（留空则使用现有/默认值）："
+-d zhcn enter_path "请输入面板路径（留空则使用现有/默认值）："
+-d zhcn enter_subport "请输入订阅端口（留空则使用现有/默认值）："
+-d zhcn enter_subpath "请输入订阅路径（留空则使用现有/默认值）："
+-d zhcn initializing "正在初始化，请稍候..."
+-d zhcn ask_admin "是否修改管理员账号密码 [y/n]？ "
+-d zhcn set_user "请设置您的用户名： "
+-d zhcn set_pass "请设置您的密码： "
+-d zhcn checksum_ok "校验和已验证。"
+-d zhcn checksum_fail "校验和不匹配，下载文件可能已损坏或被篡改。已中止。"
+-d zhcn no_checksums "此版本未发布 SHA256SUMS，已跳过校验和验证。"
+-d zhcn creds_empty "用户名和密码不能为空。"
+-d zhcn creds_failed "设置管理员账号密码失败。"
+-d zhcn current_creds "您当前的管理员登录信息："
+-d zhcn cancelled "已取消..."
+-d zhcn fresh_random "这是全新安装，为了安全将生成随机登录信息："
+-d zhcn forgot_info "如果忘记登录信息，可以输入 s-ui 打开配置菜单"
+-d zhcn upgrade_keep "这是升级，将保留旧设置。如果忘记登录信息，可以输入 s-ui 打开配置菜单"
+-d zhcn stopping_singbox "正在停止 sing-box 服务..."
+-d zhcn bin_exists "目录仍然存在！请检查内容并在迁移后手动删除"
+-d zhcn got_version "已获取 s-ui 最新版本：%s，开始安装..."
+-d zhcn fetch_fail "获取 s-ui 版本失败，可能是由于 Github API 限制，请稍后再试"
+-d zhcn download_fail "下载 s-ui 失败，请确保您的服务器可以访问 Github"
+-d zhcn begin_install "开始安装 s-ui v%s"
+-d zhcn download_ver_fail "下载 s-ui v%s 失败，请检查该版本是否存在"
+-d zhcn extract_fail "解压 s-ui 失败，压缩包可能已损坏或磁盘空间不足"
+-d zhcn broken_bin "已安装的 s-ui 程序无法运行，安装不完整"
+-d zhcn install_finished "安装完成，现已运行..."
+-d zhcn access_panel "您可以通过以下 URL 访问面板："
+-d zhcn executing "正在执行..."
+-
+-d zhtw root_err "請使用 root 權限執行此腳本"
+-d zhtw os_fail "無法偵測系統作業系統，請聯絡作者！"
+-d zhtw os_release "作業系統版本："
+-d zhtw unsupported_arch "不支援的 CPU 架構！"
+-d zhtw installing_base "正在安裝所需套件..."
+-d zhtw migrating "正在遷移..."
+-d zhtw finished_modify "安裝/更新完成！為了安全，建議修改面板設定"
+-d zhtw ask_modify "是否繼續修改設定 [y/n]？ "
+-d zhtw enter_port "請輸入面板連接埠（留空則使用現有/預設值）："
+-d zhtw enter_path "請輸入面板路徑（留空則使用現有/預設值）："
+-d zhtw enter_subport "請輸入訂閱連接埠（留空則使用現有/預設值）："
+-d zhtw enter_subpath "請輸入訂閱路徑（留空則使用現有/預設值）："
+-d zhtw initializing "正在初始化，請稍候..."
+-d zhtw ask_admin "是否修改管理員帳號密碼 [y/n]？ "
+-d zhtw set_user "請設定您的使用者名稱： "
+-d zhtw set_pass "請設定您的密碼： "
+-d zhtw checksum_ok "校驗和已驗證。"
+-d zhtw checksum_fail "校驗和不相符，下載檔案可能已損毀或被竄改。已中止。"
+-d zhtw no_checksums "此版本未發布 SHA256SUMS，已略過校驗和驗證。"
+-d zhtw creds_empty "使用者名稱與密碼不能為空。"
+-d zhtw creds_failed "設定管理員帳號密碼失敗。"
+-d zhtw current_creds "您目前的管理員登入資訊："
+-d zhtw cancelled "已取消..."
+-d zhtw fresh_random "這是全新安裝，為了安全將產生隨機登入資訊："
+-d zhtw forgot_info "如果忘記登入資訊，可以輸入 s-ui 開啟設定選單"
+-d zhtw upgrade_keep "這是升級，將保留舊設定。如果忘記登入資訊，可以輸入 s-ui 開啟設定選單"
+-d zhtw stopping_singbox "正在停止 sing-box 服務..."
+-d zhtw bin_exists "目錄仍然存在！請檢查內容並在遷移後手動刪除"
+-d zhtw got_version "已取得 s-ui 最新版本：%s，開始安裝..."
+-d zhtw fetch_fail "取得 s-ui 版本失敗，可能是由於 Github API 限制，請稍後再試"
+-d zhtw download_fail "下載 s-ui 失敗，請確保您的伺服器可以存取 Github"
+-d zhtw begin_install "開始安裝 s-ui v%s"
+-d zhtw download_ver_fail "下載 s-ui v%s 失敗，請檢查該版本是否存在"
+-d zhtw extract_fail "解壓 s-ui 失敗，壓縮檔可能已損毀或磁碟空間不足"
+-d zhtw broken_bin "已安裝的 s-ui 程式無法執行，安裝不完整"
+-d zhtw install_finished "安裝完成，現已執行..."
+-d zhtw access_panel "您可以透過以下 URL 存取面板："
+-d zhtw executing "正在執行..."
+-
+-# t <key> — return the localized message, falling back to English.
+-t() {
+-    local var="MSG_${lang}_$1"
+-    local val="${!var}"
+-    if [[ -z "$val" ]]; then
+-        var="MSG_en_$1"
+-        val="${!var}"
++
++# Alphanumeric random string (URL-safe, no base64 specials).
++gen_random_string() {
++    local length="$1"
++    LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom 2>/dev/null | head -c "$length"
++}
++
++# Is a TCP port currently being listened on? (used to avoid clashing with an
++# existing panel such as 3x-ui, whose default sub port is also 2096.)
++is_port_in_use() {
++    # 整行匹配「:端口 + 空白/行尾」,不按第几列取 —— 不同版本 ss/netstat 列数不一样,
++    # 按列取会悄悄失效,而失效表现是「误判端口空闲」、装完照样起不来,比报错更难查。
++    # 末尾的边界防止 12096 / 20960 被误判成 2096。
++    local port="$1"
++    if command -v ss > /dev/null 2>&1; then
++        ss -ltn 2> /dev/null | grep -qE "[:.]${port}([[:space:]]|$)"
++        return
++    fi
++    if command -v netstat > /dev/null 2>&1; then
++        netstat -lnt 2> /dev/null | grep -qE "[:.]${port}([[:space:]]|$)"
++        return
++    fi
++    if command -v lsof > /dev/null 2>&1; then
++        lsof -nP -iTCP:"${port}" -sTCP:LISTEN > /dev/null 2>&1 && return 0
++    fi
++    return 1
++}
++
++# Echo a free port: prefer $1, else fall back to a random high port. Keeps the
++# nice default when it's free, only deviates when something already holds it.
++pick_port() {
++    local preferred="$1" p
++    if ! is_port_in_use "$preferred"; then
++        echo "$preferred"
++        return
++    fi
++    for _ in $(seq 1 30); do
++        p=$(shuf -i 20000-60000 -n 1)
++        if ! is_port_in_use "$p"; then
++            echo "$p"
++            return
++        fi
++    done
++    echo "$preferred"
++}
++
++# On upgrade s-ui was just stopped, so anything still holding our panel/sub port
++# is a DIFFERENT process (classically a 3x-ui install also defaulting to sub port
++# 2096). Left alone, s-ui crash-loops on "bind: address already in use" and the
++# panel 503s. Detect the clash and migrate the affected port to a free one.
++resolve_port_clash() {
++    local cur_port cur_sub params=""
++    cur_port=$(/usr/local/s-ui/sui setting -show 2>/dev/null | grep -i "Panel port:" | grep -oE '[0-9]+' | head -1)
++    cur_sub=$(/usr/local/s-ui/sui setting -show 2>/dev/null | grep -i "Sub port:" | grep -oE '[0-9]+' | head -1)
++    if [[ -n "$cur_port" ]] && is_port_in_use "$cur_port"; then
++        local np=$(pick_port "$cur_port")
++        params="$params -port $np"
++        echo -e "${red}[auto] Panel port ${cur_port} is already in use by another process; moving the panel to ${np}.${plain}"
++    fi
++    if [[ -n "$cur_sub" ]] && is_port_in_use "$cur_sub"; then
++        local ns=$(pick_port "$cur_sub")
++        params="$params -subPort $ns"
++        echo -e "${red}[auto] Sub port ${cur_sub} is already in use (another panel? e.g. 3x-ui on 2096); moving subscriptions to ${ns}.${plain}"
++    fi
++    if [[ -n "$params" ]]; then
++        /usr/local/s-ui/sui setting ${params}
++        echo -e "${yellow}[auto] Ports changed to avoid a clash. Update any subscription links / bookmarks accordingly.${plain}"
+     fi
+-    printf '%s' "$val"
+ }
+ 
+ # check root
+-[[ $EUID -ne 0 ]] && echo -e "${red}$(t root_err)${plain}\n" && exit 1
++[[ $EUID -ne 0 ]] && echo -e "${red}Fatal error: ${plain} Please run this script with root privilege \n " && exit 1
++
++# 一键彻底清除入口: bash <(curl -Ls .../install.sh) purge
++# 为什么不复用 s-ui.sh 的卸载:安装被中断时 /usr/bin/s-ui 可能压根没铺下去,
++# 那条路走不通。这里只依赖 root,不依赖任何已安装的文件,也不做系统检测 ——
++# 检测失败就 exit 的话,最需要清理的机器反而清不了。
++if [[ "$1" == "purge" || "$1" == "uninstall" || "$1" == "--purge" ]]; then
++    echo -e "${yellow}Removing every trace of s-ui from this system...${plain}"
++
++    # 每一步独立执行、失败不影响后面:装坏的机器上服务和文件往往只存在一部分。
++    systemctl stop s-ui >/dev/null 2>&1
++    systemctl disable s-ui >/dev/null 2>&1
++    # 二进制被删掉后残留的进程会占着端口,先杀干净
++    pkill -9 -f '/usr/local/s-ui' >/dev/null 2>&1
++    rm -f /etc/systemd/system/s-ui.service
++    rm -f /etc/systemd/system/multi-user.target.wants/s-ui.service
++    systemctl daemon-reload >/dev/null 2>&1
++    systemctl reset-failed >/dev/null 2>&1
++
++    rm -rf /etc/s-ui/
++    rm -rf /usr/local/s-ui/
++    rm -f /usr/bin/s-ui
++
++    echo -e "${green}Done. s-ui has been completely removed.${plain}"
++    echo -e "Reinstall with: ${green}bash <(curl -Ls https://raw.githubusercontent.com/wtfdelphia/wtf-s-ui/main/install.sh)${plain}"
++    exit 0
++fi
++
+ 
+ # Check OS and set release variable
+ if [[ -f /etc/os-release ]]; then
+@@ -301,21 +140,10 @@ elif [[ -f /usr/lib/os-release ]]; then
+     source /usr/lib/os-release
+     release=$ID
+ else
+-    echo -e "${red}$(t os_fail)${plain}" >&2
++    echo "Failed to check the system OS, please contact the author!" >&2
+     exit 1
+ fi
+-echo -e "$(t os_release) $release"
+-
+-# Detect the init system (systemd vs OpenRC used by Alpine)
+-if [[ "$release" == "alpine" ]]; then
+-    init_system="openrc"
+-elif command -v systemctl >/dev/null 2>&1 && [[ -d /run/systemd/system ]]; then
+-    init_system="systemd"
+-elif command -v rc-service >/dev/null 2>&1; then
+-    init_system="openrc"
+-else
+-    init_system="systemd"
+-fi
++echo "The OS release is: $release"
+ 
+ arch() {
+     case "$(uname -m)" in
+@@ -326,275 +154,272 @@ arch() {
+     armv6* | armv6) echo 'armv6' ;;
+     armv5* | armv5) echo 'armv5' ;;
+     s390x) echo 's390x' ;;
+-    *) echo -e "${green}$(t unsupported_arch)${plain}" && rm -f install.sh && exit 1 ;;
++    *) echo -e "${green}Unsupported CPU architecture! ${plain}" && rm -f install.sh && exit 1 ;;
+     esac
+ }
+ 
+ echo "arch: $(arch)"
+ 
+ install_base() {
+-    echo -e "${yellow}$(t installing_base)${plain}"
+     case "${release}" in
+     centos | almalinux | rocky | oracle)
+-        yum -y update && yum install -y -q wget curl tar
++        yum -y update && yum install -y -q wget curl tar tzdata
+         ;;
+     fedora)
+-        dnf -y update && dnf install -y -q wget curl tar
++        dnf -y update && dnf install -y -q wget curl tar tzdata
+         ;;
+     arch | manjaro | parch)
+-        pacman -Syu && pacman -Syu --noconfirm wget curl tar
++        pacman -Syu && pacman -Syu --noconfirm wget curl tar tzdata
+         ;;
+     opensuse-tumbleweed)
+-        zypper refresh && zypper -q install -y wget curl tar
+-        ;;
+-    alpine)
+-        # Alpine uses apk and OpenRC; bash is needed for the s-ui menu script.
+-        apk update && apk add --no-cache wget curl tar bash openrc
++        zypper refresh && zypper -q install -y wget curl tar timezone
+         ;;
+     *)
+-        apt-get update && apt-get install -y -q wget curl tar
++        apt-get update && apt-get install -y -q wget curl tar tzdata
+         ;;
+     esac
+ }
+ 
+-# Write an OpenRC service definition (Alpine and other OpenRC systems).
+-install_openrc_service() {
+-    cat >/etc/init.d/s-ui <<'EOF'
+-#!/sbin/openrc-run
+-
+-description="s-ui Service"
+-command="/usr/local/s-ui/sui"
+-command_background=true
+-directory="/usr/local/s-ui"
+-pidfile="/run/s-ui.pid"
+-output_log="/var/log/s-ui.log"
+-error_log="/var/log/s-ui.log"
+-respawn_delay=10
+-supervisor=supervise-daemon
+-
+-depend() {
+-    need localmount
+-    use net dns logger firewall
+-    after net firewall
+-}
+-EOF
+-    chmod +x /etc/init.d/s-ui
+-}
+-
+ config_after_install() {
+-    echo -e "${yellow}$(t migrating)${plain}"
++    echo -e "${yellow}Migration... ${plain}"
+     /usr/local/s-ui/sui migrate
+ 
+-    echo -e "${yellow}$(t finished_modify)${plain}"
+-    read -r -p "$(t ask_modify)" config_confirm
++    # Full-auto mode: no prompts. Fresh install -> random credentials + random
++    # panel path; upgrade -> keep existing settings untouched.
++    if is_auto; then
++        if [[ ! -f "/usr/local/s-ui/db/s-ui.db" ]]; then
++            local config_account=$(gen_random_string 10)
++            local config_password=$(gen_random_string 12)
++            local config_path=$(gen_random_string 15)
++            # Pick free ports so we don't clash with an existing panel (e.g. a
++            # 3x-ui install already on 2096). Keep the defaults when they're free.
++            local config_port=$(pick_port 2095)
++            local config_subPort=$(pick_port 2096)
++            echo -e "${yellow}[auto] Fresh install: generating random credentials, panel path and free ports...${plain}"
++            [[ "$config_port" != "2095" ]] && echo -e "${yellow}[auto] Port 2095 busy, using ${config_port} for the panel.${plain}"
++            [[ "$config_subPort" != "2096" ]] && echo -e "${yellow}[auto] Port 2096 busy, using ${config_subPort} for subscriptions.${plain}"
++            /usr/local/s-ui/sui setting -port "${config_port}" -path "/${config_path}/" -subPort "${config_subPort}"
++            /usr/local/s-ui/sui admin -username "${config_account}" -password "${config_password}"
++            # Generate an APIv2 token so this server can be managed from another
++            # panel out of the box (central management).
++            local config_token=$(/usr/local/s-ui/sui token -desc install 2>/dev/null)
++            echo -e "###############################################"
++            echo -e "${green}username:${config_account}${plain}"
++            echo -e "${green}password:${config_password}${plain}"
++            echo -e "${green}panel port:${config_port}${plain}"
++            echo -e "${green}panel path:/${config_path}/${plain}"
++            echo -e "${green}sub port:${config_subPort}${plain}"
++            if [[ -n "$config_token" ]]; then
++                echo -e "${green}API token (copy the line below):${plain}"
++                echo -e "${config_token}"
++            fi
++            echo -e "###############################################"
++            echo -e "${red}If you forget your login info, type ${green}s-ui${red} on the server for the menu.${plain}"
++        else
++            echo -e "${yellow}[auto] Upgrade detected: keeping existing settings.${plain}"
++            # Guard against a port clash with another panel on the same box.
++            resolve_port_clash
++            local up_token=$(/usr/local/s-ui/sui token -desc upgrade 2>/dev/null)
++            echo -e "###############################################"
++            /usr/local/s-ui/sui admin -show 2>/dev/null
++            if [[ -n "$up_token" ]]; then
++                echo -e "${green}API token (copy the line below):${plain}"
++                echo -e "${up_token}"
++            fi
++            echo -e "${red}If you forget your login info, type ${green}s-ui${red} on the server for the menu.${plain}"
++            echo -e "###############################################"
++        fi
++        return
++    fi
++
++    echo -e "${yellow}Install/update finished! For security it's recommended to modify panel settings ${plain}"
++    read -p "Do you want to continue with the modification [y/n]? ": config_confirm
+     if [[ "${config_confirm}" == "y" || "${config_confirm}" == "Y" ]]; then
+-        echo -e "${yellow}$(t enter_port)${plain}"
+-        read -r config_port
+-        echo -e "${yellow}$(t enter_path)${plain}"
+-        read -r config_path
++        echo -e "Enter the ${yellow}panel port${plain} (leave blank for existing/default value):"
++        read config_port
++        echo -e "Enter the ${yellow}panel path${plain} (leave blank for existing/default value):"
++        read config_path
+ 
+         # Sub configuration
+-        echo -e "${yellow}$(t enter_subport)${plain}"
+-        read -r config_subPort
+-        echo -e "${yellow}$(t enter_subpath)${plain}"
+-        read -r config_subPath
++        echo -e "Enter the ${yellow}subscription port${plain} (leave blank for existing/default value):"
++        read config_subPort
++        echo -e "Enter the ${yellow}subscription path${plain} (leave blank for existing/default value):" 
++        read config_subPath
+ 
+         # Set configs
+-        echo -e "${yellow}$(t initializing)${plain}"
+-        params=()
+-        [ -z "$config_port" ] || params+=(-port "$config_port")
+-        [ -z "$config_path" ] || params+=(-path "$config_path")
+-        [ -z "$config_subPort" ] || params+=(-subPort "$config_subPort")
+-        [ -z "$config_subPath" ] || params+=(-subPath "$config_subPath")
+-        /usr/local/s-ui/sui setting "${params[@]}"
+-
+-        read -r -p "$(t ask_admin)" admin_confirm
++        echo -e "${yellow}Initializing, please wait...${plain}"
++        params=""
++        [ -z "$config_port" ] || params="$params -port $config_port"
++        [ -z "$config_path" ] || params="$params -path $config_path"
++        [ -z "$config_subPort" ] || params="$params -subPort $config_subPort"
++        [ -z "$config_subPath" ] || params="$params -subPath $config_subPath"
++        /usr/local/s-ui/sui setting ${params}
++
++        read -p "Do you want to change admin credentials [y/n]? ": admin_confirm
+         if [[ "${admin_confirm}" == "y" || "${admin_confirm}" == "Y" ]]; then
+-            # First admin credentials. -s so the password does not end up on
+-            # screen or in the scrollback of a shared terminal.
+-            read -r -p "$(t set_user)" config_account
+-            read -r -s -p "$(t set_pass)" config_password
+-            echo
+-
+-            # Both have to be non-empty. Passing an empty -password used to
+-            # store the hash of "", which authenticates anyone who submits an
+-            # empty password.
+-            if [[ -z "$config_account" || -z "$config_password" ]]; then
+-                echo -e "${red}$(t creds_empty)${plain}"
+-                exit 1
+-            fi
++            # First admin credentials
++            read -p "Please set up your username:" config_account
++            read -p "Please set up your password:" config_password
+ 
+             # Set credentials
+-            echo -e "${yellow}$(t initializing)${plain}"
+-            if ! /usr/local/s-ui/sui admin -username "${config_account}" -password "${config_password}"; then
+-                echo -e "${red}$(t creds_failed)${plain}"
+-                exit 1
+-            fi
++            echo -e "${yellow}Initializing, please wait...${plain}"
++            /usr/local/s-ui/sui admin -username ${config_account} -password ${config_password}
+         else
+-            echo -e "${yellow}$(t current_creds)${plain}"
++            echo -e "${yellow}Your current admin credentials: ${plain}"
+             /usr/local/s-ui/sui admin -show
+         fi
+     else
+-        echo -e "${red}$(t cancelled)${plain}"
++        echo -e "${red}cancel...${plain}"
+         if [[ ! -f "/usr/local/s-ui/db/s-ui.db" ]]; then
+             local usernameTemp=$(head -c 6 /dev/urandom | base64)
+             local passwordTemp=$(head -c 6 /dev/urandom | base64)
+-            echo -e "$(t fresh_random)"
++            /usr/local/s-ui/sui admin -username ${usernameTemp} -password ${passwordTemp}
++            # Mint an APIv2 token even on a plain (non-auto) fresh install, so this
++            # panel can be managed centrally out of the box. (qs31)
++            local config_token=$(/usr/local/s-ui/sui token -desc install 2>/dev/null)
++            echo -e "this is a fresh installation,will generate random login info for security concerns:"
+             echo -e "###############################################"
+             echo -e "${green}username:${usernameTemp}${plain}"
+             echo -e "${green}password:${passwordTemp}${plain}"
+-            echo -e "###############################################"
+-            echo -e "${red}$(t forgot_info)${plain}"
+-            if ! /usr/local/s-ui/sui admin -username "${usernameTemp}" -password "${passwordTemp}"; then
+-                echo -e "${red}$(t creds_failed)${plain}"
+-                exit 1
++            if [[ -n "$config_token" ]]; then
++                echo -e "${green}API token (copy the line below):${plain}"
++                echo -e "${config_token}"
+             fi
++            echo -e "###############################################"
++            echo -e "${red}if you forgot your login info,you can type ${green}s-ui${red} for configuration menu${plain}"
+         else
+-            echo -e "${red}$(t upgrade_keep)${plain}"
++            echo -e "${red} this is your upgrade,will keep old settings,if you forgot your login info,you can type ${green}s-ui${red} for configuration menu${plain}"
+         fi
+     fi
+ }
+ 
++# Best-effort: open the panel/sub ports and the node port range in the host
++# firewall so nodes are reachable out of the box. Full-auto only.
++open_firewall() {
++    is_auto || return 0
++    local panel_port sub_port
++    panel_port=$(/usr/local/s-ui/sui setting -show 2>/dev/null | grep -i "Panel port:" | grep -oE '[0-9]+' | head -1)
++    sub_port=$(/usr/local/s-ui/sui setting -show 2>/dev/null | grep -i "Sub port:" | grep -oE '[0-9]+' | head -1)
++    if command -v ufw > /dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
++        [[ -n "$panel_port" ]] && ufw allow "${panel_port}/tcp" > /dev/null 2>&1
++        [[ -n "$sub_port" ]] && ufw allow "${sub_port}/tcp" > /dev/null 2>&1
++        ufw allow 10000:60000/tcp > /dev/null 2>&1
++        ufw allow 10000:60000/udp > /dev/null 2>&1
++        ufw reload > /dev/null 2>&1
++        echo -e "${green}[auto] Firewall (ufw) opened: ${panel_port}, ${sub_port}, 10000-60000 tcp/udp.${plain}"
++    elif command -v firewall-cmd > /dev/null 2>&1 && firewall-cmd --state > /dev/null 2>&1; then
++        [[ -n "$panel_port" ]] && firewall-cmd --permanent --add-port="${panel_port}/tcp" > /dev/null 2>&1
++        [[ -n "$sub_port" ]] && firewall-cmd --permanent --add-port="${sub_port}/tcp" > /dev/null 2>&1
++        firewall-cmd --permanent --add-port=10000-60000/tcp > /dev/null 2>&1
++        firewall-cmd --permanent --add-port=10000-60000/udp > /dev/null 2>&1
++        firewall-cmd --reload > /dev/null 2>&1
++        echo -e "${green}[auto] Firewall (firewalld) opened: ${panel_port}, ${sub_port}, 10000-60000 tcp/udp.${plain}"
++    fi
++}
++
+ prepare_services() {
+-    if [[ "${init_system}" == "systemd" ]]; then
+-        if [[ -f "/etc/systemd/system/sing-box.service" ]]; then
+-            echo -e "${yellow}$(t stopping_singbox)${plain}"
+-            systemctl stop sing-box
+-            rm -f /usr/local/s-ui/bin/sing-box /usr/local/s-ui/bin/runSingbox.sh /usr/local/s-ui/bin/signal
+-        fi
++    if [[ -f "/etc/systemd/system/sing-box.service" ]]; then
++        echo -e "${yellow}Stopping sing-box service... ${plain}"
++        systemctl stop sing-box
++        rm -f /usr/local/s-ui/bin/sing-box /usr/local/s-ui/bin/runSingbox.sh /usr/local/s-ui/bin/signal
+     fi
+     if [[ -e "/usr/local/s-ui/bin" ]]; then
+         echo -e "###############################################################"
+-        echo -e "${green}/usr/local/s-ui/bin${red} $(t bin_exists)${plain}"
++        echo -e "${green}/usr/local/s-ui/bin${red} directory exists yet!"
++        echo -e "Please check the content and delete it manually after migration ${plain}"
+         echo -e "###############################################################"
+     fi
+-    if [[ "${init_system}" == "systemd" ]]; then
+-        systemctl daemon-reload
+-    fi
++    systemctl daemon-reload
+ }
+ 
+-# verify_checksum checks the downloaded archive against the SHA256SUMS file the
+-# release publishes. A release without one (anything built before this was
+-# added) is installed with a warning rather than refused, so an older version
+-# can still be rolled back to.
+-verify_checksum() {
+-    local archive="$1" sums="$2" name expected actual
+-    name=$(basename "$archive")
+-
+-    if [[ ! -s "$sums" ]] || ! command -v sha256sum >/dev/null 2>&1; then
+-        echo -e "${yellow}$(t no_checksums)${plain}"
+-        return 0
+-    fi
+-
+-    # Matched by filename, and the leading * that sha256sum writes for a binary
+-    # entry is accepted. Comparing the hashes directly rather than piping into
+-    # `sha256sum -c` keeps this independent of the working directory, which the
+-    # paths in a SHA256SUMS file are relative to.
+-    expected=$(awk -v f="$name" '$2 == f || $2 == "*" f { print $1; exit }' "$sums")
+-    if [[ -z "$expected" ]]; then
+-        echo -e "${yellow}$(t no_checksums)${plain}"
+-        return 0
+-    fi
+-
+-    actual=$(sha256sum "$archive" | awk '{ print $1 }')
+-    if [[ "$expected" != "$actual" ]]; then
+-        echo -e "${red}$(t checksum_fail)${plain}"
+-        return 1
+-    fi
+-    echo -e "${green}$(t checksum_ok)${plain}"
++# Download a GitHub release asset with retry + mirror fallback. A CN VPS often
++# reaches github.com (so the version fetch above succeeds) but then gets its
++# release-CDN connection reset mid-transfer -- the classic wget "Cannot write to
++# '/tmp/...tar.gz' (Success)." followed by "Downloading s-ui failed". So we retry
++# the direct URL, then fall back through public GitHub proxy mirrors, and verify
++# the result is a real gzip each time so a mirror's HTML error page can't slip
++# through as a "successful" download.
++# Usage: download_release OUT_FILE GITHUB_URL
++download_release() {
++    local out="$1" gh_url="$2" src label
++    local sources=(
++        "$gh_url"
++        "https://ghfast.top/$gh_url"
++        "https://gh-proxy.com/$gh_url"
++        "https://ghproxy.net/$gh_url"
++    )
++    for src in "${sources[@]}"; do
++        if [[ "$src" == "$gh_url" ]]; then
++            echo -e "${yellow}Downloading (direct github.com)...${plain}"
++        else
++            label="${src#https://}"; label="${label%%/*}"
++            echo -e "${yellow}Direct download failed, retrying via mirror: ${label}${plain}"
++        fi
++        if wget --no-check-certificate --timeout=30 --tries=2 -O "$out" "$src" \
++            && tar -tzf "$out" > /dev/null 2>&1; then
++            return 0
++        fi
++        rm -f "$out"
++    done
++    return 1
+ }
+ 
+ install_s-ui() {
+-    # A private directory, not /tmp itself. The old path was predictable, so on
+-    # a shared host another user could pre-create the archive or the extracted
+-    # tree and have root install it.
+-    workdir=$(mktemp -d "${TMPDIR:-/tmp}/s-ui-install.XXXXXXXX") || exit 1
+-    trap 'rm -rf "$workdir"' EXIT
+-    cd "$workdir" || exit 1
+-
+-    local archive="$workdir/s-ui-linux-$(arch).tar.gz"
+-    local sums="$workdir/SHA256SUMS"
++    cd /tmp/
+ 
+     if [ $# == 0 ]; then
+-        last_version=$(curl -Ls "https://api.github.com/repos/alireza0/s-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
++        last_version=$(curl -Ls "https://api.github.com/repos/wtfdelphia/wtf-s-ui/releases/latest" | grep '"tag_name":' | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
++        # Fall back to the most recent release (covers prerelease-only repos:
++        # /releases/latest skips prereleases, /releases lists everything).
++        if [[ -z "$last_version" ]]; then
++            last_version=$(curl -Ls "https://api.github.com/repos/wtfdelphia/wtf-s-ui/releases" | grep '"tag_name":' | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
++        fi
+         if [[ ! -n "$last_version" ]]; then
+-            echo -e "${red}$(t fetch_fail)${plain}"
++            echo -e "${red}Failed to fetch s-ui version, it maybe due to Github API restrictions, please try it later${plain}"
++            exit 1
++        fi
++        echo -e "Got s-ui latest version: ${last_version}, beginning the installation..."
++        if ! download_release /tmp/s-ui-linux-$(arch).tar.gz "https://github.com/wtfdelphia/wtf-s-ui/releases/download/${last_version}/s-ui-linux-$(arch).tar.gz"; then
++            echo -e "${red}Downloading s-ui failed after trying direct + mirrors. Make sure your server can reach Github (or a proxy) and that /tmp has free disk space.${plain}"
+             exit 1
+         fi
+-        printf "${green}$(t got_version)${plain}\n" "${last_version}"
+     else
+         last_version=$1
+-        printf "$(t begin_install)\n" "$1"
+-    fi
+-
+-    # No --no-check-certificate. It was on every download here, which turns the
+-    # whole install into an unauthenticated fetch: anyone able to intercept it
+-    # chooses the binary that then runs as root.
+-    local base="https://github.com/alireza0/s-ui/releases/download/${last_version}"
+-    if ! wget -q --show-progress -O "$archive" "${base}/s-ui-linux-$(arch).tar.gz"; then
+-        if [ $# == 0 ]; then
+-            echo -e "${red}$(t download_fail)${plain}"
+-        else
+-            printf "${red}$(t download_ver_fail)${plain}\n" "$1"
++        url="https://github.com/wtfdelphia/wtf-s-ui/releases/download/${last_version}/s-ui-linux-$(arch).tar.gz"
++        echo -e "Beginning the install s-ui v$1"
++        if ! download_release /tmp/s-ui-linux-$(arch).tar.gz "${url}"; then
++            echo -e "${red}download s-ui v$1 failed (tried direct + mirrors), please check the version exists${plain}"
++            exit 1
+         fi
+-        exit 1
+     fi
+-    wget -q -O "$sums" "${base}/SHA256SUMS" 2>/dev/null || : # older releases have none
+-    verify_checksum "$archive" "$sums" || exit 1
+ 
+     if [[ -e /usr/local/s-ui/ ]]; then
+-        if [[ "${init_system}" == "systemd" ]]; then
+-            systemctl stop s-ui
+-        elif [[ "${init_system}" == "openrc" ]]; then
+-            rc-service s-ui stop 2>/dev/null
+-        fi
++        systemctl stop s-ui
+     fi
+ 
+-    if ! tar zxf "$archive" -C "$workdir"; then
+-        echo -e "${red}$(t extract_fail)${plain}"
+-        df -h "$workdir" /usr/local 2>/dev/null
+-        exit 1
+-    fi
+-    rm -f "$archive"
++    tar zxvf s-ui-linux-$(arch).tar.gz
++    rm s-ui-linux-$(arch).tar.gz -f
+ 
+     chmod +x s-ui/sui s-ui/s-ui.sh
+     cp s-ui/s-ui.sh /usr/bin/s-ui
+-    if ! cp -rf s-ui /usr/local/; then
+-        echo -e "${red}$(t extract_fail)${plain}"
+-        df -h /usr/local 2>/dev/null
+-        rm -rf s-ui
+-        exit 1
+-    fi
+-    if ! /usr/local/s-ui/sui -v >/dev/null 2>&1; then
+-        echo -e "${red}$(t broken_bin)${plain}"
+-        df -h /usr/local 2>/dev/null
+-        rm -rf s-ui
+-        exit 1
+-    fi
+-    if [[ "${init_system}" == "systemd" ]]; then
+-        cp -f s-ui/*.service /etc/systemd/system/
+-    fi
++    cp -rf s-ui /usr/local/
++    cp -f s-ui/*.service /etc/systemd/system/
+     rm -rf s-ui
+ 
+     config_after_install
++    open_firewall
+     prepare_services
+ 
+-    if [[ "${init_system}" == "openrc" ]]; then
+-        install_openrc_service
+-        rc-update add s-ui default
+-        rc-service s-ui restart
+-    else
+-        systemctl enable s-ui --now
+-    fi
++    systemctl enable s-ui --now
+ 
+-    printf "${green}s-ui v${last_version}${plain} $(t install_finished)\n"
+-    echo -e "$(t access_panel)${green}"
++    echo -e "${green}s-ui ${last_version}${plain} installation finished, it is up and running now..."
++    echo -e "You may access the Panel with following URL(s):${green}"
+     /usr/local/s-ui/sui uri
+     echo -e "${plain}"
+     echo -e ""
+     s-ui help
+ }
+ 
+-echo -e "${green}$(t executing)${plain}"
++echo -e "${green}Executing...${plain}"
+ install_base
+ install_s-ui $1
+diff --git a/s-ui.sh b/s-ui.sh
+index 49fa08b..bfb6cc3 100644
+--- a/s-ui.sh
++++ b/s-ui.sh
+@@ -83,7 +83,7 @@ before_show_menu() {
+ }
+ 
+ install() {
+-    bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/main/install.sh)
++    bash <(curl -Ls https://raw.githubusercontent.com/wtfdelphia/wtf-s-ui/main/install.sh)
+     if [[ $? == 0 ]]; then
+         if [[ $# == 0 ]]; then
+             start
+@@ -102,7 +102,7 @@ update() {
+         fi
+         return 0
+     fi
+-    bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/main/install.sh)
++    bash <(curl -Ls https://raw.githubusercontent.com/wtfdelphia/wtf-s-ui/main/install.sh)
+     if [[ $? == 0 ]]; then
+         LOGI "Update is complete, Panel has automatically restarted "
+         exit 0
+@@ -118,7 +118,7 @@ custom_version() {
+     exit 1
+     fi
+ 
+-    download_link="https://raw.githubusercontent.com/alireza0/s-ui/main/install.sh"
++    download_link="https://raw.githubusercontent.com/wtfdelphia/wtf-s-ui/main/install.sh"
+ 
+     install_command="bash <(curl -Ls $download_link) $panel_version"
+ 
+@@ -141,15 +141,21 @@ uninstall() {
+     else
+         systemctl stop s-ui
+         systemctl disable s-ui
+-        rm /etc/systemd/system/s-ui.service -f
++        # Kill anything still running from a deleted binary so the port frees up.
++        pkill -9 -f '/usr/local/s-ui' 2>/dev/null
++        rm -f /etc/systemd/system/s-ui.service
++        rm -f /etc/systemd/system/multi-user.target.wants/s-ui.service
+         systemctl daemon-reload
+         systemctl reset-failed
+     fi
+-    rm /etc/s-ui/ -rf
+-    rm /usr/local/s-ui/ -rf
++    rm -rf /etc/s-ui/
++    rm -rf /usr/local/s-ui/
++    # The menu script itself is /usr/bin/s-ui; remove it too so `s-ui` is gone
++    # after uninstall (the running copy lives in memory, so this is safe).
++    rm -f /usr/bin/s-ui
+ 
+     echo ""
+-    echo -e "Uninstalled Successfully, If you want to remove this script, then after exiting the script run ${green}rm /usr/local/s-ui -f${plain} to delete it."
++    echo -e "${green}Uninstalled cleanly: binary, database, service unit and the s-ui menu script are all removed.${plain}"
+     echo ""
+ 
+     if [[ $# == 0 ]]; then
+@@ -174,8 +180,19 @@ set_admin() {
+     before_show_menu
+ }
+ 
++show_api_token() {
++    # Print the central-management APIv2 token. Without -new this reuses the
++    # existing token (idempotent), so viewing it never piles up new tokens.
++    local token=$(/usr/local/s-ui/sui token -desc menu 2>/dev/null)
++    if [[ -n "$token" ]]; then
++        echo -e "${green}API token (copy the line below):${plain}"
++        echo -e "${token}"
++    fi
++}
++
+ view_admin() {
+     /usr/local/s-ui/sui admin -show
++    show_api_token
+     before_show_menu
+ }
+ 
+@@ -211,6 +228,7 @@ set_setting() {
+ view_setting() {
+     /usr/local/s-ui/sui setting -show
+     view_uri
++    show_api_token
+     before_show_menu
+ }
+ 
+@@ -323,7 +341,7 @@ show_log() {
+ update_shell() {
+     # Certificate verification stays on: this file is about to be installed as
+     # /usr/bin/s-ui and run as root.
+-    wget -O /usr/bin/s-ui -N https://github.com/alireza0/s-ui/raw/main/s-ui.sh
++    wget -O /usr/bin/s-ui -N https://github.com/wtfdelphia/wtf-s-ui/raw/main/s-ui.sh
+     if [[ $? != 0 ]]; then
+         echo ""
+         LOGE "Failed to download script, Please check whether the machine can connect Github"
+@@ -930,10 +948,12 @@ show_menu() {
+   ${green}18.${plain} Enable or Disable BBR
+   ${green}19.${plain} SSL Certificate Management
+   ${green}20.${plain} Cloudflare SSL Certificate
++————————————————————————————————
++  ${green}21.${plain} Update Menu Script
+ ————————————————————————————————
+  "
+     show_status s-ui
+-    echo && read -p "Please enter your selection [0-20]: " num
++    echo && read -p "Please enter your selection [0-21]: " num
+ 
+     case "${num}" in
+     0)
+@@ -949,7 +969,9 @@ show_menu() {
+         check_install && custom_version
+         ;;
+     4)
+-        check_install && uninstall
++        # 卸载不设前置检查:装到一半失败时面板状态就是「未安装」,
++        # 再挡一道就成了死锁 —— 残留文件反而永远清不掉。
++        uninstall
+         ;;
+     5)
+         check_install && reset_admin
+@@ -999,8 +1021,11 @@ show_menu() {
+     20)
+         ssl_cert_issue_CF
+         ;;
++    21)
++        update_shell
++        ;;
+     *)
+-        LOGE "Please enter the correct number [0-20]"
++        LOGE "Please enter the correct number [0-21]"
+         ;;
+     esac
+ }
+@@ -1035,7 +1060,7 @@ if [[ $# > 0 ]]; then
+         check_uninstall 0 && install 0
+         ;;
+     "uninstall")
+-        check_install 0 && uninstall 0
++        uninstall 0
+         ;;
+     *) show_usage ;;
+     esac
+diff --git a/service/client.go b/service/client.go
+index 6657463..7ce4aac 100644
+--- a/service/client.go
++++ b/service/client.go
+@@ -404,6 +404,15 @@ func (s *ClientService) UpdateClientsOnInboundDelete(tx *gorm.DB, id uint, tag s
+ 				newClientInbounds = append(newClientInbounds, clientInbound)
+ 			}
+ 		}
++		// Orphan cleanup: a client that no longer belongs to any inbound is
++		// removed together with the inbound it was created for.
++		if len(newClientInbounds) == 0 {
++			err = tx.Where("id = ?", client.Id).Delete(model.Client{}).Error
++			if err != nil {
++				return err
++			}
++			continue
++		}
+ 		client.Inbounds, err = json.MarshalIndent(newClientInbounds, "", "  ")
+ 		if err != nil {
+ 			return err
+diff --git a/service/config.go b/service/config.go
+index 56130c6..c28646a 100644
+--- a/service/config.go
++++ b/service/config.go
+@@ -35,6 +35,7 @@ type ConfigService struct {
+ 	OutboundService
+ 	ServicesService
+ 	EndpointService
++	ServerListService
+ }
+ 
+ // SingBoxConfig is the shape GetConfig decodes the stored base config into
+@@ -447,6 +448,9 @@ func (s *ConfigService) Save(obj string, act string, data json.RawMessage, initU
+ 		restartWith = configData
+ 	case "settings":
+ 		err = s.SettingService.Save(tx, data)
++	case "servers":
++		// Saved panel addresses (launcher); no core involvement.
++		err = s.ServerListService.Save(tx, act, data)
+ 	default:
+ 		return nil, common.NewError("unknown object: ", obj)
+ 	}
+diff --git a/service/panel.go b/service/panel.go
+index 24e1c2f..afe79eb 100644
+--- a/service/panel.go
++++ b/service/panel.go
+@@ -1,11 +1,19 @@
+ package service
+ 
+ import (
++	"encoding/json"
++	"fmt"
++	"io"
++	"net/http"
+ 	"os"
++	"os/exec"
+ 	"runtime"
++	"strconv"
++	"strings"
+ 	"syscall"
+ 	"time"
+ 
++	"github.com/alireza0/s-ui/config"
+ 	"github.com/alireza0/s-ui/logger"
+ )
+ 
+@@ -30,3 +38,201 @@ func (s *PanelService) RestartPanel(delay time.Duration) error {
+ 	}()
+ 	return nil
+ }
++
++// PanelUpdateInfo 是面板版本检查的结果。
++type PanelUpdateInfo struct {
++	CurrentVersion  string `json:"currentVersion"`
++	LatestVersion   string `json:"latestVersion"`
++	UpdateAvailable bool   `json:"updateAvailable"`
++}
++
++const (
++	// s-ui 没有独立的 update.sh,升级就是重跑 install.sh。这样做是安全的:
++	// 脚本里只有在 /usr/local/s-ui/db/s-ui.db 不存在时才生成随机账号密码和端口,
++	// 已装过的机器走的是「保留现有设置」那条路 —— 否则 Web 点一下更新就会
++	// 把管理员锁在面板外面。
++	panelUpdaterURL      = "https://raw.githubusercontent.com/wtfdelphia/wtf-s-ui/main/install.sh"
++	panelReleaseAPI      = "https://api.github.com/repos/wtfdelphia/wtf-s-ui/releases/latest"
++	maxPanelUpdaterBytes = 2 << 20
++)
++
++// GetUpdateInfo 查 GitHub 上的最新 release,和本机版本比较。
++func (s *PanelService) GetUpdateInfo() (*PanelUpdateInfo, error) {
++	latest, err := fetchLatestPanelVersion()
++	if err != nil {
++		return nil, err
++	}
++	current := config.GetVersion()
++	return &PanelUpdateInfo{
++		CurrentVersion:  current,
++		LatestVersion:   latest,
++		UpdateAvailable: isNewerVersion(latest, current),
++	}, nil
++}
++
++// StartUpdate 在当前请求之外把更新跑起来。
++//
++// 关键是让更新进程活过面板自己 —— 脚本装完会重启 s-ui,如果更新进程是面板的
++// 子进程,它会跟着一起死,留下装了一半的状态。优先用 systemd-run 起一个独立
++// 单元;拿不到 systemd 就退回 setsid 脱离进程组。
++func (s *PanelService) StartUpdate() error {
++	if runtime.GOOS != "linux" {
++		return fmt.Errorf("panel web update is supported only on Linux installations")
++	}
++
++	bash, err := exec.LookPath("bash")
++	if err != nil {
++		return fmt.Errorf("bash is required to run the panel updater: %w", err)
++	}
++
++	scriptPath, err := downloadPanelUpdater()
++	if err != nil {
++		return err
++	}
++
++	// 跑完删掉临时脚本,不管成败。SUI_AUTO=1 让它全程不问问题。
++	updateScript := fmt.Sprintf("set -e; trap 'rm -f %s' EXIT; SUI_AUTO=1 %s %s",
++		shellQuote(scriptPath), shellQuote(bash), shellQuote(scriptPath))
++
++	if systemdRun, err := exec.LookPath("systemd-run"); err == nil {
++		unitName := fmt.Sprintf("s-ui-web-update-%d", time.Now().Unix())
++		cmd := exec.Command(systemdRun, "--unit", unitName, bash, "-lc", updateScript)
++		out, err := cmd.CombinedOutput()
++		if err != nil {
++			output := strings.TrimSpace(string(out))
++			// 容器或没跑 systemd 的环境:不是错误,退到 setsid 那条路
++			if !strings.Contains(output, "System has not been booted with systemd") &&
++				!strings.Contains(output, "Failed to connect to bus") {
++				_ = os.Remove(scriptPath)
++				return fmt.Errorf("failed to start panel update job: %w: %s", err, output)
++			}
++			logger.Warning("systemd-run unavailable, falling back to detached update process:", output)
++		} else {
++			logger.Info("started panel update job via systemd-run unit ", unitName)
++			return nil
++		}
++	}
++
++	cmd := exec.Command(bash, "-lc", "setsid "+updateScript+" >/dev/null 2>&1 </dev/null &")
++	if err := cmd.Start(); err != nil {
++		_ = os.Remove(scriptPath)
++		return fmt.Errorf("failed to start panel update job: %w", err)
++	}
++	if err := cmd.Process.Release(); err != nil {
++		logger.Warning("failed to release panel update process:", err)
++	}
++	logger.Info("started detached panel update job")
++	return nil
++}
++
++func downloadPanelUpdater() (string, error) {
++	client := &http.Client{Timeout: 15 * time.Second}
++	resp, err := client.Get(panelUpdaterURL)
++	if err != nil {
++		return "", fmt.Errorf("download panel updater: %w", err)
++	}
++	defer resp.Body.Close()
++	if resp.StatusCode != http.StatusOK {
++		return "", fmt.Errorf("download panel updater: unexpected HTTP %d", resp.StatusCode)
++	}
++
++	file, err := os.CreateTemp("", "s-ui-update-*.sh")
++	if err != nil {
++		return "", err
++	}
++	path := file.Name()
++	ok := false
++	defer func() {
++		_ = file.Close()
++		if !ok {
++			_ = os.Remove(path)
++		}
++	}()
++
++	n, err := io.Copy(file, io.LimitReader(resp.Body, maxPanelUpdaterBytes+1))
++	if err != nil {
++		return "", fmt.Errorf("write panel updater: %w", err)
++	}
++	if n > maxPanelUpdaterBytes {
++		return "", fmt.Errorf("panel updater exceeds %d bytes", maxPanelUpdaterBytes)
++	}
++	if err := file.Chmod(0700); err != nil {
++		return "", err
++	}
++	ok = true
++	return path, nil
++}
++
++func fetchLatestPanelVersion() (string, error) {
++	client := &http.Client{Timeout: 10 * time.Second}
++	resp, err := client.Get(panelReleaseAPI)
++	if err != nil {
++		return "", err
++	}
++	defer resp.Body.Close()
++	if resp.StatusCode != http.StatusOK {
++		return "", fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
++	}
++	var release struct {
++		TagName string `json:"tag_name"`
++	}
++	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
++		return "", err
++	}
++	if release.TagName == "" {
++		return "", fmt.Errorf("latest panel release tag is empty")
++	}
++	return release.TagName, nil
++}
++
++// 版本形如 1.4.2-qs43(CI 会把 tag 去掉 v 后写进 config/version)。
++// 先比三段主版本号,一样再比 qs 序号 —— 光比字符串的话,本地跑着比线上新的
++// 开发版时会一直亮「有更新」。
++func isNewerVersion(latest, current string) bool {
++	lMain, lQs, lOk := parseSuiVersion(latest)
++	cMain, cQs, cOk := parseSuiVersion(current)
++	if !lOk || !cOk {
++		return normalizeVersionTag(latest) != normalizeVersionTag(current)
++	}
++	for i := range lMain {
++		if lMain[i] != cMain[i] {
++			return lMain[i] > cMain[i]
++		}
++	}
++	return lQs > cQs
++}
++
++// 返回三段主版本号、qs 序号(没有则 0)、是否解析成功。
++func parseSuiVersion(version string) ([3]int, int, bool) {
++	var main [3]int
++	v := normalizeVersionTag(version)
++	qs := 0
++	if idx := strings.Index(v, "-qs"); idx >= 0 {
++		if n, err := strconv.Atoi(v[idx+3:]); err == nil {
++			qs = n
++		}
++		v = v[:idx]
++	} else if idx := strings.IndexAny(v, "-+"); idx >= 0 {
++		v = v[:idx]
++	}
++	parts := strings.Split(v, ".")
++	if len(parts) != 3 {
++		return main, 0, false
++	}
++	for i, p := range parts {
++		n, err := strconv.Atoi(p)
++		if err != nil {
++			return main, 0, false
++		}
++		main[i] = n
++	}
++	return main, qs, true
++}
++
++func normalizeVersionTag(version string) string {
++	return strings.TrimPrefix(strings.TrimSpace(version), "v")
++}
++
++func shellQuote(value string) string {
++	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
++}
+diff --git a/service/serverlist.go b/service/serverlist.go
+new file mode 100644
+index 0000000..6a2a959
+--- /dev/null
++++ b/service/serverlist.go
+@@ -0,0 +1,54 @@
++package service
++
++import (
++	"encoding/json"
++
++	"github.com/alireza0/s-ui/database"
++	"github.com/alireza0/s-ui/database/model"
++	"github.com/alireza0/s-ui/util/common"
++
++	"gorm.io/gorm"
++)
++
++// ServerListService manages the saved panel addresses (the server launcher).
++// Note: distinct from ServerService (which reports this host's system info).
++type ServerListService struct{}
++
++func (s *ServerListService) GetAll() ([]model.Server, error) {
++	db := database.GetDB()
++	var servers []model.Server
++	err := db.Model(model.Server{}).Find(&servers).Error
++	if err != nil {
++		return nil, err
++	}
++	return servers, nil
++}
++
++func (s *ServerListService) GetById(id string) (*model.Server, error) {
++	db := database.GetDB()
++	var server model.Server
++	err := db.Model(model.Server{}).Where("id = ?", id).First(&server).Error
++	if err != nil {
++		return nil, err
++	}
++	return &server, nil
++}
++
++func (s *ServerListService) Save(tx *gorm.DB, act string, data json.RawMessage) error {
++	switch act {
++	case "new", "edit":
++		var server model.Server
++		if err := json.Unmarshal(data, &server); err != nil {
++			return err
++		}
++		return tx.Save(&server).Error
++	case "del":
++		var id uint
++		if err := json.Unmarshal(data, &id); err != nil {
++			return err
++		}
++		return tx.Where("id = ?", id).Delete(model.Server{}).Error
++	default:
++		return common.NewErrorf("unknown action: %s", act)
++	}
++}
+diff --git a/service/user.go b/service/user.go
+index d7c83d4..76b3431 100644
+--- a/service/user.go
++++ b/service/user.go
+@@ -232,3 +232,18 @@ func (s *UserService) DeleteToken(loginUser string, id string) error {
+ 	}
+ 	return nil
+ }
++
++// GetOrCreateToken returns an existing non-expired token if there is one, else
++// creates a new one. Used so install/upgrade can print a stable token without
++// piling up new ones on every run.
++func (s *UserService) GetOrCreateToken(username string, desc string) (string, error) {
++	db := database.GetDB()
++	var existing model.Tokens
++	err := db.Model(model.Tokens{}).
++		Where("(expiry == 0 or expiry > ?)", time.Now().Unix()).
++		First(&existing).Error
++	if err == nil && existing.Token != "" {
++		return existing.Token, nil
++	}
++	return s.AddToken(username, 0, desc)
++}
+diff --git a/web/web.go b/web/web.go
+index 9d973fc..f522253 100644
+--- a/web/web.go
++++ b/web/web.go
+@@ -159,6 +159,9 @@ func (s *Server) initRouter() (*gin.Engine, error) {
+ 			c.Redirect(http.StatusTemporaryRedirect, base_url)
+ 			return
+ 		}
++		// index.html references content-hashed assets; never let the browser
++		// serve a stale copy after an upgrade (old UI running on a new binary).
++		c.Header("Cache-Control", "no-store")
+ 		c.HTML(http.StatusOK, "index.html", gin.H{"BASE_URL": base_url})
+ 	})
+ 

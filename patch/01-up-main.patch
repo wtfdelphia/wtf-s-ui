@@ -1,0 +1,4745 @@
+diff --git a/.github/FUNDING.yml b/.github/FUNDING.yml
+deleted file mode 100644
+index ee92348..0000000
+--- a/.github/FUNDING.yml
++++ /dev/null
+@@ -1 +0,0 @@
+-github: alireza0
+diff --git a/.github/workflows/docker.yml b/.github/workflows/docker.yml
+index 81f9749..04846fb 100644
+--- a/.github/workflows/docker.yml
++++ b/.github/workflows/docker.yml
+@@ -1,8 +1,11 @@
+ name: Docker Image CI
++# Manual-only on this fork: GHCR is published with the built-in GITHUB_TOKEN.
++# (Docker Hub publishing was removed — it needed secrets this fork doesn't set.)
++permissions:
++  contents: read
++  packages: write
++
+ on:
+-  push:
+-    tags:
+-      - "*"
+   workflow_dispatch:
+ 
+ jobs:
+@@ -57,8 +60,7 @@ jobs:
+         uses: docker/metadata-action@v6
+         with:
+           images: |
+-            alireza7/s-ui
+-            ghcr.io/alireza0/s-ui
++            ghcr.io/teminuosi/s-ui
+           tags: |
+             type=ref,event=branch
+             type=ref,event=tag
+@@ -74,11 +76,6 @@ jobs:
+           key: ${{ runner.os }}-buildx-${{ matrix.platform }}-${{ github.sha }}
+           restore-keys: |
+             ${{ runner.os }}-buildx-${{ matrix.platform }}-
+-      - name: Login to Docker Hub
+-        uses: docker/login-action@v4
+-        with:
+-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+       - name: Login to GHCR
+         uses: docker/login-action@v4
+         with:
+@@ -94,8 +91,7 @@ jobs:
+           platforms: ${{ matrix.platform }}
+           labels: ${{ steps.meta.outputs.labels }}
+           tags: |
+-            alireza7/s-ui
+-            ghcr.io/alireza0/s-ui
++            ghcr.io/teminuosi/s-ui
+           cache-from: type=local,src=/tmp/.buildx-cache
+           cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
+           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+@@ -122,11 +118,6 @@ jobs:
+           path: ${{ runner.temp }}/digests
+           pattern: digests-*
+           merge-multiple: true
+-      - name: Login to Docker Hub
+-        uses: docker/login-action@v4
+-        with:
+-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+       - name: Login to GHCR
+         uses: docker/login-action@v4
+         with:
+@@ -140,8 +131,7 @@ jobs:
+         uses: docker/metadata-action@v6
+         with:
+           images: |
+-            alireza7/s-ui
+-            ghcr.io/alireza0/s-ui
++            ghcr.io/teminuosi/s-ui
+           tags: |
+             type=ref,event=branch
+             type=ref,event=tag
+@@ -152,7 +142,7 @@ jobs:
+         working-directory: ${{ runner.temp }}/digests
+         run: |
+           set -e
+-          for img in alireza7/s-ui ghcr.io/alireza0/s-ui; do
++          for img in ghcr.io/teminuosi/s-ui; do
+             TAGS_ARGS=$(echo "$DOCKER_METADATA_OUTPUT_JSON" | jq -cr --arg img "$img" '.tags | map(select(startswith($img))) | map("-t " + .) | join(" ")')
+             DIGEST_REFS=$(for f in *; do echo -n "${img}@sha256:$(cat "$f") "; done)
+             docker buildx imagetools create $TAGS_ARGS $DIGEST_REFS
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index 353b871..752c737 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -1,5 +1,8 @@
+ name: Release S-UI
+ 
++permissions:
++  contents: write
++
+ on:
+   workflow_dispatch:
+   release:
+@@ -73,6 +76,11 @@ jobs:
+       - name: Checkout repository
+         uses: actions/checkout@v6.0.2
+ 
++      - name: Stamp version from release tag
++        if: startsWith(github.ref, 'refs/tags/')
++        shell: bash
++        run: printf '%s' "${GITHUB_REF_NAME#v}" > config/version
++
+       - name: Download frontend dist
+         uses: actions/download-artifact@v8
+         with:
+@@ -198,5 +206,5 @@ jobs:
+           tag: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
+           file: s-ui-linux-${{ matrix.platform }}.tar.gz
+           asset_name: s-ui-linux-${{ matrix.platform }}.tar.gz
+-          prerelease: true
++          prerelease: false
+           overwrite: true
+diff --git a/.github/workflows/windows.yml b/.github/workflows/windows.yml
+index 565afa7..d4b5d96 100644
+--- a/.github/workflows/windows.yml
++++ b/.github/workflows/windows.yml
+@@ -1,5 +1,8 @@
+ name: Build S-UI for Windows
+ 
++permissions:
++  contents: write
++
+ on:
+   workflow_dispatch:
+   release:
+@@ -66,6 +69,11 @@ jobs:
+       - name: Checkout repository
+         uses: actions/checkout@v6.0.2
+ 
++      - name: Stamp version from release tag
++        if: startsWith(github.ref, 'refs/tags/')
++        shell: bash
++        run: printf '%s' "${GITHUB_REF_NAME#v}" > config/version
++
+       - name: Download frontend artifact
+         uses: actions/download-artifact@v8
+         with:
+@@ -136,5 +144,5 @@ jobs:
+           tag: ${{ github.ref }}
+           file: s-ui-windows-${{ matrix.arch }}.zip
+           asset_name: s-ui-windows-${{ matrix.arch }}.zip
+-          prerelease: true
++          prerelease: false
+           overwrite: true
+diff --git a/.gitmodules b/.gitmodules
+index 89c4063..b29759a 100644
+--- a/.gitmodules
++++ b/.gitmodules
+@@ -1,4 +1,4 @@
+ [submodule "frontend"]
+ 	path = frontend
+-	url = https://github.com/alireza0/s-ui-frontend
++	url = https://github.com/Teminuosi/s-ui-frontend
+ 	branch = main
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 45dd322..439ed33 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -33,7 +33,7 @@ Please be respectful and constructive when interacting with maintainers and othe
+ ### Clone and Submodules
+ 
+ ```bash
+-git clone https://github.com/alireza0/s-ui
++git clone https://github.com/Teminuosi/s-ui
+ cd s-ui
+ git submodule update --init --recursive
+ ```
+@@ -105,7 +105,7 @@ Use the same tags when building locally if you need feature parity with releases
+ ### Docker (optional)
+ 
+ ```bash
+-git clone https://github.com/alireza0/s-ui
++git clone https://github.com/Teminuosi/s-ui
+ cd s-ui
+ git submodule update --init --recursive
+ docker build -t s-ui .
+@@ -185,7 +185,7 @@ go vet ./...
+ 
+ ## Features That Need Help
+ 
+-Community help is especially valuable in these areas. Check the [Issues](https://github.com/alireza0/s-ui/issues) for current tasks and ideas.
++Community help is especially valuable in these areas. Check the [Issues](https://github.com/Teminuosi/s-ui/issues) for current tasks and ideas.
+ 
+ ### High-Value Areas
+ 
+diff --git a/README.md b/README.md
+index 51d09e0..cbd4519 100644
+--- a/README.md
++++ b/README.md
+@@ -1,259 +1,190 @@
+-# S-UI
+-**An Advanced Web Panel • Built on SagerNet/Sing-Box**
++# S-UI(改版)
+ 
+-![](https://img.shields.io/github/v/release/alireza0/s-ui.svg)
+-![S-UI Docker pull](https://img.shields.io/docker/pulls/alireza7/s-ui.svg)
+-[![Go Report Card](https://goreportcard.com/badge/github.com/alireza0/s-ui)](https://goreportcard.com/report/github.com/alireza0/s-ui)
+-[![Downloads](https://img.shields.io/github/downloads/alireza0/s-ui/total.svg)](https://img.shields.io/github/downloads/alireza0/s-ui/total.svg)
+-[![License](https://img.shields.io/badge/license-GPL%20V3-blue.svg?longCache=true)](https://www.gnu.org/licenses/gpl-3.0.en.html)
+-
+-> **Disclaimer:** This project is only for personal learning and communication, please do not use it for illegal purposes, please do not use it in a production environment
+-
+-**If you think this project is helpful to you, you may wish to give a**:star2:
+-
+-**Want to contribute?** See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding conventions, testing, and the pull request process.
++**基于 [SagerNet/sing-box](https://github.com/SagerNet/sing-box) 的高级 Web 面板**
+ 
+-[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/alireza7)
++> 本仓库是 [alireza0/s-ui](https://github.com/alireza0/s-ui) 的二次开发分支,在保留上游全部能力的基础上,
++> 把已在 [3x-ui 改版](https://github.com/Teminuosi/3x-ui) 验证过的体验改进搬了过来:
++> 全自动一键安装、面板更新指向本仓库、协议模板、行内二维码、批量删除、中转与多节点部署(逐步推进)。
++>
++> 仅供个人学习与交流,请勿用于非法用途,请勿用于生产环境。上游版权归原作者所有。
+ 
+-<a href="https://nowpayments.io/donation/alireza7" target="_blank" rel="noreferrer noopener">
+-   <img src="https://nowpayments.io/images/embeds/donation-button-white.svg" alt="Crypto donation button by NOWPayments">
+-</a>
+-
+-## Quick Overview
+-| Features                               |      Enable?       |
+-| -------------------------------------- | :----------------: |
+-| Multi-Protocol                         | :heavy_check_mark: |
+-| Multi-Language                         | :heavy_check_mark: |
+-| Multi-Client/Inbound                   | :heavy_check_mark: |
+-| Advanced Traffic Routing Interface     | :heavy_check_mark: |
+-| Client & Traffic & System Status       | :heavy_check_mark: |
+-| Subscription Link (link/json/clash + info)| :heavy_check_mark: |
+-| Dark/Light Theme                       | :heavy_check_mark: |
+-| API Interface                          | :heavy_check_mark: |
++[![License](https://img.shields.io/badge/license-GPL%20V3-blue.svg?longCache=true)](https://www.gnu.org/licenses/gpl-3.0.en.html)
+ 
+-## Supported Platforms
+-| Platform | Architecture | Status |
+-|----------|--------------|---------|
+-| Linux    | amd64, arm64, armv7, armv6, armv5, 386, s390x | ✅ Supported |
+-| Windows  | amd64, 386, arm64 | ✅ Supported |
+-| macOS    | amd64, arm64 | 🚧 Experimental |
++> 🌐 **官网 / 导航站**：https://3yuedaohang.com — 免费节点、搭建教程、订阅工具，一站直达。
++>
++> 📺 **YouTube 频道**：https://www.youtube.com/@zhanzhang3yue
++>
++> 🖥️ **机器推荐**：https://3yuedaohang.com/cn2/banwagong
+ 
+-## Screenshots
++---
+ 
+-!["Main"](https://github.com/alireza0/s-ui-frontend/raw/main/media/main.png)
++## 快速开始
+ 
+-[Other UI Screenshots](https://github.com/alireza0/s-ui-frontend/blob/main/screenshots.md)
++### 全自动安装(推荐)
+ 
+-## API Documentation
++一条命令装好,全程无需交互:全自动会自动生成随机管理员账号密码和随机面板路径,装完直接打印访问信息。
+ 
+-[API-Documentation Wiki](https://github.com/alireza0/s-ui/wiki/API-Documentation)
++```sh
++SUI_AUTO=1 bash <(curl -Ls https://raw.githubusercontent.com/Teminuosi/s-ui/main/install.sh)
++```
+ 
+-## Default Installation Information
+-- Panel Port: 2095
+-- Panel Path: /app/
+-- Subscription Port: 2096
+-- Subscription Path: /sub/
+-- User/Password: admin
++### 交互式安装
+ 
+-## Install & Upgrade to Latest Version
++想自己一步步设置端口、路径、账号密码,用普通模式:
+ 
+-### Linux/macOS
+ ```sh
+-bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/master/install.sh)
++bash <(curl -Ls https://raw.githubusercontent.com/Teminuosi/s-ui/main/install.sh)
+ ```
+ 
++装好后,在服务器上随时输入 `s-ui` 打开管理菜单(启动/停止/重启、改设置、改账号、SSL 证书、BBR 等)。
++
+ ### Windows
+-1. Download the latest Windows release from [GitHub Releases](https://github.com/alireza0/s-ui/releases/latest)
+-2. Extract the ZIP file
+-3. Run `install-windows.bat` as Administrator
+-4. Follow the installation wizard
+ 
+-## Install legacy Version
++1. 从 [Releases](https://github.com/Teminuosi/s-ui/releases/latest) 下载最新 Windows 包并解压
++2. 以管理员身份运行 `install-windows.bat`,按向导完成
+ 
+-**Step 1:** To install your desired legacy version, add the version to the end of the installation command. e.g., ver `1.0.0`:
++---
+ 
+-```sh
+-VERSION=1.0.0 && bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/$VERSION/install.sh) $VERSION
+-```
++## 默认安装信息
+ 
+-## Manual installation
++| 项目         | 默认值     |
++| ------------ | ---------- |
++| 面板端口     | `2095`     |
++| 面板路径     | `/app/`    |
++| 订阅端口     | `2096`     |
++| 订阅路径     | `/sub/`    |
++| 账号 / 密码  | `admin`    |
+ 
+-### Linux/macOS
+-1. Get the latest version of S-UI based on your OS/Architecture from GitHub: [https://github.com/alireza0/s-ui/releases/latest](https://github.com/alireza0/s-ui/releases/latest)
+-2. **OPTIONAL** Get the latest version of `s-ui.sh` [https://raw.githubusercontent.com/alireza0/s-ui/master/s-ui.sh](https://raw.githubusercontent.com/alireza0/s-ui/master/s-ui.sh)
+-3. **OPTIONAL** Copy `s-ui.sh` to /usr/bin/ and run `chmod +x /usr/bin/s-ui`.
+-4. Extract s-ui tar.gz file to a directory of your choice and navigate to the directory where you extracted the tar.gz file.
+-5. Copy *.service files to /etc/systemd/system/ and run `systemctl daemon-reload`.
+-6. Enable autostart and start S-UI service using `systemctl enable s-ui --now`
+-7. Start sing-box service using `systemctl enable sing-box --now`
++> 全自动安装(`SUI_AUTO=1`)会把账号密码和面板路径换成随机值,请留意安装结束时打印的信息。
++> 升级(已存在数据库)时全自动模式会**保留原有设置**,不会改动你的账号与路径。
+ 
+-### Windows
+-1. Get the latest Windows version from GitHub: [https://github.com/alireza0/s-ui/releases/latest](https://github.com/alireza0/s-ui/releases/latest)
+-2. Download the appropriate Windows package (e.g., `s-ui-windows-amd64.zip`)
+-3. Extract the ZIP file to a directory of your choice
+-4. Run `install-windows.bat` as Administrator
+-5. Follow the installation wizard
+-6. Access the panel at http://localhost:2095/app
+-
+-## Uninstall S-UI
++---
+ 
+-```sh
+-sudo -i
++## 与上游的差异(本分支在做的事)
+ 
+-systemctl disable s-ui  --now
++- **阶段 0 — Fork 基建**:安装/更新脚本全部指向本仓库;CI 按 tag 出 Release 并把版本号写进面板;全自动安装体验。✅
++- **阶段 1 — 一键模板 + 二维码 + 批量删除**:常用协议(VLESS+Reality、Hysteria2 等)一键建好;客户端列表行内出二维码;入站/客户端支持多选批量删除。🚧
++- **阶段 2 — 中转**:粘贴落地分享链接→自动转 outbound→一步配好路由的"添加中转"向导。🚧
++- **阶段 3 — 多节点部署**:以"另一台 S-UI = 一个节点"的方式,中央面板通过 APIv2 令牌远程下发配置、同步流量与心跳。🚧
+ 
+-rm -f /etc/systemd/system/sing-box.service
+-systemctl daemon-reload
++> 持续跟进上游修复与 sing-box 内核升级,按需回合(不整体合并)。
+ 
+-rm -fr /usr/local/s-ui
+-rm /usr/bin/s-ui
+-```
++---
+ 
+-## Install using Docker
++## 支持的平台
+ 
+-<details>
+-   <summary>Click for details</summary>
++| 平台    | 架构 | 状态 |
++|---------|------|------|
++| Linux   | amd64 / arm64 / armv7 / armv6 / armv5 / 386 / s390x | ✅ |
++| Windows | amd64 / 386 / arm64 | ✅ |
++| macOS   | amd64 / arm64 | 🚧 实验性 |
+ 
+-### Usage
++## 功能概览
+ 
+-**Step 1:** Install Docker
++- 多协议:Mixed、SOCKS、HTTP、Direct、Redirect、TProxy;VLESS、VMess、Trojan、Shadowsocks;ShadowTLS、Hysteria、Hysteria2、Naive、TUIC(支持 XTLS)
++- 入站 / 出站高级配置;流量路由界面(PROXY Protocol、外部/透明代理、SSL、端口)
++- 客户端流量上限与到期时间;在线客户端、流量统计与系统状态监控
++- 订阅服务(link / json / clash,可加外部订阅);面板与订阅 HTTPS
++- 多语言(英语、波斯语、越南语、简体中文、繁体中文、俄语);明暗主题;API 接口
+ 
+-```shell
+-curl -fsSL https://get.docker.com | sh
+-```
++---
+ 
+-**Step 2:** Install S-UI
++## Docker 安装
+ 
+-> Docker compose method
++<details>
++<summary>展开</summary>
+ 
+ ```shell
+-mkdir s-ui && cd s-ui
+-wget -q https://raw.githubusercontent.com/alireza0/s-ui/master/docker-compose.yml
+-docker compose up -d
+-```
+-
+-> Use docker
++# 安装 Docker
++curl -fsSL https://get.docker.com | sh
+ 
+-```shell
++# 运行 S-UI(GHCR 镜像)
+ mkdir s-ui && cd s-ui
+ docker run -itd \
+     -p 2095:2095 -p 2096:2096 -p 443:443 -p 80:80 \
+     -v $PWD/db/:/app/db/ \
+     -v $PWD/cert/:/root/cert/ \
+     --name s-ui --restart=unless-stopped \
+-    alireza7/s-ui:latest
++    ghcr.io/teminuosi/s-ui:latest
+ ```
+ 
+-> Build your own image
++自行构建镜像:
+ 
+ ```shell
+-git clone https://github.com/alireza0/s-ui
+-git submodule update --init --recursive
++git clone --recurse-submodules https://github.com/Teminuosi/s-ui
++cd s-ui
+ docker build -t s-ui .
+ ```
+ 
+ </details>
+ 
+-## Manual run ( contribution )
++## 卸载
+ 
+-<details>
+-   <summary>Click for details</summary>
++面板还能用的话，直接进管理菜单选卸载：
+ 
+-### Build and run whole project
+-```shell
+-./runSUI.sh
+-```
+-
+-### Clone the repository
+-```shell
+-# clone repository
+-git clone https://github.com/alireza0/s-ui
+-# clone submodules
+-git submodule update --init --recursive
++```sh
++s-ui        # 菜单里选「卸载」
+ ```
+ 
++### 卸载不掉 / 装到一半失败了怎么办
+ 
+-### - Frontend
++安装中途被打断时，面板会处于**装了一半**的状态：文件还在，但菜单可能已经打不开。
++这条**彻底清除**命令不依赖任何已安装的文件：
+ 
+-Visit [s-ui-frontend](https://github.com/alireza0/s-ui-frontend) for frontend code
+-
+-### - Backend
+-> Please build frontend once before!
+-
+-To build backend:
+-```shell
+-# remove old frontend compiled files
+-rm -fr web/html/*
+-# apply new frontend compiled files
+-cp -R frontend/dist/ web/html/
+-# build
+-go build -o sui main.go
++```sh
++bash <(curl -Ls https://raw.githubusercontent.com/Teminuosi/s-ui/main/install.sh) purge
+ ```
+ 
+-To run backend (from root folder of repository):
+-```shell
+-./sui
+-```
++它会清掉：systemd 服务、`/etc/s-ui/`（含数据库）、`/usr/local/s-ui/`、
++以及 `/usr/bin/s-ui` 管理命令，并杀掉残留进程释放端口。清完可以直接重新安装。
+ 
+-</details>
++> 注意：**数据库会一起删掉**，入站和用户配置不会保留。
+ 
+-## Languages
++---
+ 
+-- English
+-- Farsi
+-- Vietnamese
+-- Chinese (Simplified)
+-- Chinese (Traditional)
+-- Russian
++## 本地开发
+ 
+-## Features
++<details>
++<summary>展开</summary>
+ 
+-- Supported protocols:
+-  - General:  Mixed, SOCKS, HTTP, HTTPS, Direct, Redirect, TProxy
+-  - V2Ray based: VLESS, VMess, Trojan, Shadowsocks
+-  - Other protocols: ShadowTLS, Hysteria, Hysteria2, Naive, TUIC
+-- Supports XTLS protocols
+-- An advanced interface for routing traffic, incorporating PROXY Protocol, External, and Transparent Proxy, SSL Certificate, and Port
+-- An advanced interface for inbound and outbound configuration
+-- Clients’ traffic cap and expiration date
+-- Displays online clients, inbounds and outbounds with traffic statistics, and system status monitoring
+-- Subscription service with ability to add external links and subscription
+-- HTTPS for secure access to the web panel and subscription service (self-provided domain + SSL certificate)
+-- Dark/Light theme
++```shell
++# 克隆(含前端子模块)
++git clone --recurse-submodules https://github.com/Teminuosi/s-ui
++cd s-ui
+ 
+-## Environment Variables
++# 一键构建并运行(前端 + 后端)
++./runSUI.sh
++```
+ 
+-<details>
+-  <summary>Click for details</summary>
++分步构建:
+ 
+-### Usage
++```shell
++# 前端
++cd frontend && npm install && npm run build && cd ..
++# 后端(需先构建前端)
++rm -fr web/html/* && cp -R frontend/dist/* web/html/
++go build -o sui main.go
++./sui
++```
+ 
+-| Variable       |                      Type                      | Default       |
+-| -------------- | :--------------------------------------------: | :------------ |
+-| SUI_LOG_LEVEL  | `"debug"` \| `"info"` \| `"warn"` \| `"error"` | `"info"`      |
+-| SUI_DEBUG      |                   `boolean`                    | `false`       |
+-| SUI_BIN_FOLDER |                    `string`                    | `"bin"`       |
+-| SUI_DB_FOLDER  |                    `string`                    | `"db"`        |
+-| SINGBOX_API    |                    `string`                    | -             |
++前端代码在独立子模块仓库:[Teminuosi/s-ui-frontend](https://github.com/Teminuosi/s-ui-frontend)
+ 
+ </details>
+ 
+-## SSL Certificate
+-
+-<details>
+-  <summary>Click for details</summary>
+-
+-### Certbot
++## 环境变量
+ 
+-```bash
+-snap install core; snap refresh core
+-snap install --classic certbot
+-ln -s /snap/bin/certbot /usr/bin/certbot
++| 变量           | 取值                                     | 默认     |
++| -------------- | ---------------------------------------- | -------- |
++| SUI_LOG_LEVEL  | `debug` / `info` / `warn` / `error`      | `info`   |
++| SUI_DEBUG      | `true` / `false`                         | `false`  |
++| SUI_BIN_FOLDER | 字符串                                   | `bin`    |
++| SUI_DB_FOLDER  | 字符串                                   | `db`     |
++| SINGBOX_API    | 字符串                                   | -        |
+ 
+-certbot certonly --standalone --register-unsafely-without-email --non-interactive --agree-tos -d <Your Domain Name>
+-```
++---
+ 
+-</details>
++## 致谢
+ 
+-## Stargazers over Time
+-[![Stargazers over time](https://starchart.cc/alireza0/s-ui.svg)](https://starchart.cc/alireza0/s-ui)
++- 上游项目:[alireza0/s-ui](https://github.com/alireza0/s-ui)、[alireza0/s-ui-frontend](https://github.com/alireza0/s-ui-frontend)
++- 内核:[SagerNet/sing-box](https://github.com/SagerNet/sing-box)
++- [API 文档(上游 Wiki)](https://github.com/alireza0/s-ui/wiki/API-Documentation)
+diff --git a/api/apiHandler.go b/api/apiHandler.go
+index 5c73cd1..fa2314c 100644
+--- a/api/apiHandler.go
++++ b/api/apiHandler.go
+@@ -27,6 +27,8 @@ func (a *APIHandler) initRouter(g *gin.RouterGroup) {
+ 			checkLogin(c)
+ 		}
+ 	})
++	// Forward to a remote server's APIv2 when X-Remote-Server is set.
++	g.Use(a.ApiService.remoteMiddleware)
+ 	g.POST("/:postAction", a.postHandler)
+ 	g.GET("/:getAction", a.getHandler)
+ }
+@@ -42,6 +44,8 @@ func (a *APIHandler) postHandler(c *gin.Context) {
+ 		a.ApiService.ChangePass(c)
+ 	case "save":
+ 		a.ApiService.Save(c, loginUser)
++	case "updatePanel":
++		a.ApiService.UpdatePanel(c)
+ 	case "restartApp":
+ 		a.ApiService.RestartApp(c)
+ 	case "restartSb":
+@@ -71,7 +75,7 @@ func (a *APIHandler) getHandler(c *gin.Context) {
+ 		a.ApiService.Logout(c)
+ 	case "load":
+ 		a.ApiService.LoadData(c)
+-	case "inbounds", "outbounds", "endpoints", "services", "tls", "clients", "config":
++	case "inbounds", "outbounds", "endpoints", "services", "tls", "clients", "config", "servers":
+ 		err := a.ApiService.LoadPartialData(c, []string{action})
+ 		if err != nil {
+ 			jsonMsg(c, action, err)
+@@ -83,6 +87,8 @@ func (a *APIHandler) getHandler(c *gin.Context) {
+ 		a.ApiService.GetSettings(c)
+ 	case "stats":
+ 		a.ApiService.GetStats(c)
++	case "updateInfo":
++		a.ApiService.GetUpdateInfo(c)
+ 	case "status":
+ 		a.ApiService.GetStatus(c)
+ 	case "onlines":
+@@ -101,6 +107,8 @@ func (a *APIHandler) getHandler(c *gin.Context) {
+ 		a.ApiService.GetSingboxConfig(c)
+ 	case "checkOutbound":
+ 		a.ApiService.GetCheckOutbound(c)
++	case "testServer":
++		a.ApiService.TestServer(c)
+ 	default:
+ 		jsonMsg(c, "failed", common.NewError("unknown action: ", action))
+ 	}
+diff --git a/api/apiService.go b/api/apiService.go
+index 9ab0212..0027316 100644
+--- a/api/apiService.go
++++ b/api/apiService.go
+@@ -26,6 +26,7 @@ type ApiService struct {
+ 	service.PanelService
+ 	service.StatsService
+ 	service.ServerService
++	service.ServerListService
+ }
+ 
+ func (a *ApiService) LoadData(c *gin.Context) {
+@@ -141,6 +142,12 @@ func (a *ApiService) LoadPartialData(c *gin.Context, objs []string) error {
+ 				return err
+ 			}
+ 			data[obj] = services
++		case "servers":
++			servers, err := a.ServerListService.GetAll()
++			if err != nil {
++				return err
++			}
++			data[obj] = servers
+ 		case "tls":
+ 			tlsConfigs, err := a.TlsService.GetAll()
+ 			if err != nil {
+@@ -314,6 +321,20 @@ func (a *ApiService) Save(c *gin.Context, loginUser string) {
+ 	}
+ }
+ 
++// GetUpdateInfo 查线上有没有新版本。查不到(断网、GitHub 不通)只回报错,
++// 不影响面板其它功能 —— 前端拿不到就不显示徽标。
++func (a *ApiService) GetUpdateInfo(c *gin.Context) {
++	info, err := a.PanelService.GetUpdateInfo()
++	jsonObj(c, info, err)
++}
++
++// UpdatePanel 触发面板自更新。更新进程会被甩到面板生命周期之外(systemd-run
++// 或 setsid),所以这个接口返回之后面板才重启,前端能收到这次响应。
++func (a *ApiService) UpdatePanel(c *gin.Context) {
++	err := a.PanelService.StartUpdate()
++	jsonMsg(c, "updatePanel", err)
++}
++
+ func (a *ApiService) RestartApp(c *gin.Context) {
+ 	err := a.PanelService.RestartPanel(3)
+ 	jsonMsg(c, "restartApp", err)
+diff --git a/api/apiV2Handler.go b/api/apiV2Handler.go
+index 8961d08..6bbe04d 100644
+--- a/api/apiV2Handler.go
++++ b/api/apiV2Handler.go
+@@ -64,7 +64,7 @@ func (a *APIv2Handler) getHandler(c *gin.Context) {
+ 	switch action {
+ 	case "load":
+ 		a.ApiService.LoadData(c)
+-	case "inbounds", "outbounds", "endpoints", "services", "tls", "clients", "config":
++	case "inbounds", "outbounds", "endpoints", "services", "tls", "clients", "config", "servers":
+ 		err := a.ApiService.LoadPartialData(c, []string{action})
+ 		if err != nil {
+ 			jsonMsg(c, action, err)
+diff --git a/api/remote.go b/api/remote.go
+new file mode 100644
+index 0000000..0ed36dc
+--- /dev/null
++++ b/api/remote.go
+@@ -0,0 +1,171 @@
++package api
++
++import (
++	"bytes"
++	"encoding/json"
++	"io"
++	"net/http"
++	"net/url"
++	"path"
++	"strconv"
++	"strings"
++	"time"
++
++	"github.com/alireza0/s-ui/util/common"
++
++	"github.com/gin-gonic/gin"
++)
++
++// Actions that always run on the central panel itself, never proxied to a
++// remote: the server registry, authentication and token management.
++var remoteLocalOnly = map[string]bool{
++	"servers":     true,
++	"testServer":  true,
++	"login":       true,
++	"logout":      true,
++	"tokens":      true,
++	"addToken":    true,
++	"deleteToken": true,
++	"changePass":  true,
++}
++
++// remoteMiddleware forwards a request to a remote server's APIv2 (token auth)
++// when it carries an X-Remote-Server header, so the central panel can manage
++// other s-ui instances with the same UI. Local-only actions are never proxied.
++func (a *ApiService) remoteMiddleware(c *gin.Context) {
++	serverId := c.GetHeader("X-Remote-Server")
++	if serverId == "" {
++		return
++	}
++	action := path.Base(c.Request.URL.Path)
++	if remoteLocalOnly[action] {
++		return
++	}
++	// The server registry is a central-panel concept, but its writes go through
++	// the generic "save" action (object=servers lives in the body, invisible to
++	// the action check above). Without this they'd be proxied to the remote and
++	// never touch the local table -- the delete "succeeds" remotely (or 404s) yet
++	// the entry stays. Peek the object and keep servers writes local.
++	if action == "save" && peekFormValue(c, "object") == "servers" {
++		return
++	}
++	a.proxyToRemote(c, serverId, action)
++	c.Abort()
++}
++
++// peekFormValue reads one urlencoded form field without consuming the body for
++// later handlers: it buffers the body, parses a copy, then restores the body so
++// a genuinely proxied request still forwards its full payload.
++func peekFormValue(c *gin.Context, key string) string {
++	if c.Request.Body == nil {
++		return ""
++	}
++	b, err := io.ReadAll(c.Request.Body)
++	c.Request.Body = io.NopCloser(bytes.NewReader(b))
++	if err != nil {
++		return ""
++	}
++	vals, err := url.ParseQuery(string(b))
++	if err != nil {
++		return ""
++	}
++	return vals.Get(key)
++}
++
++func (a *ApiService) proxyToRemote(c *gin.Context, serverId string, action string) {
++	server, err := a.ServerListService.GetById(serverId)
++	if err != nil || server.Url == "" {
++		jsonMsg(c, "", common.NewError("remote server not found"))
++		return
++	}
++
++	base := server.Url
++	if !strings.HasSuffix(base, "/") {
++		base += "/"
++	}
++	target := base + "apiv2/" + action
++	if c.Request.URL.RawQuery != "" {
++		target += "?" + c.Request.URL.RawQuery
++	}
++
++	var body io.Reader
++	if c.Request.Method == http.MethodPost {
++		b, _ := io.ReadAll(c.Request.Body)
++		body = bytes.NewReader(b)
++	}
++	req, err := http.NewRequest(c.Request.Method, target, body)
++	if err != nil {
++		jsonMsg(c, "", err)
++		return
++	}
++	req.Header.Set("Token", server.Token)
++	if ct := c.Request.Header.Get("Content-Type"); ct != "" {
++		req.Header.Set("Content-Type", ct)
++	}
++
++	client := &http.Client{Timeout: 30 * time.Second}
++	resp, err := client.Do(req)
++	if err != nil {
++		jsonMsg(c, "", err)
++		return
++	}
++	defer resp.Body.Close()
++
++	respBody, _ := io.ReadAll(resp.Body)
++	contentType := resp.Header.Get("Content-Type")
++	if contentType == "" {
++		contentType = "application/json"
++	}
++	c.Data(resp.StatusCode, contentType, respBody)
++}
++
++// TestServer probes a registered remote server by calling its APIv2 status
++// endpoint with the stored token, measuring round-trip latency. It returns
++// {online, latency, error} so the UI can confirm the server link actually works.
++func (a *ApiService) TestServer(c *gin.Context) {
++	id := c.Query("id")
++	server, err := a.ServerListService.GetById(id)
++	if err != nil || server == nil || server.Url == "" {
++		jsonObj(c, gin.H{"online": false, "error": "server not found"}, nil)
++		return
++	}
++
++	base := server.Url
++	if !strings.HasSuffix(base, "/") {
++		base += "/"
++	}
++
++	req, err := http.NewRequest(http.MethodGet, base+"apiv2/status", nil)
++	if err != nil {
++		jsonObj(c, gin.H{"online": false, "error": err.Error()}, nil)
++		return
++	}
++	req.Header.Set("Token", server.Token)
++
++	client := &http.Client{Timeout: 8 * time.Second}
++	start := time.Now()
++	resp, err := client.Do(req)
++	latency := time.Since(start).Milliseconds()
++	if err != nil {
++		jsonObj(c, gin.H{"online": false, "error": "unreachable"}, nil)
++		return
++	}
++	defer resp.Body.Close()
++
++	if resp.StatusCode != http.StatusOK {
++		jsonObj(c, gin.H{"online": false, "latency": latency, "error": "http " + strconv.Itoa(resp.StatusCode)}, nil)
++		return
++	}
++
++	body, _ := io.ReadAll(resp.Body)
++	var parsed struct {
++		Success bool `json:"success"`
++	}
++	_ = json.Unmarshal(body, &parsed)
++	if !parsed.Success {
++		jsonObj(c, gin.H{"online": false, "latency": latency, "error": "bad token"}, nil)
++		return
++	}
++
++	jsonObj(c, gin.H{"online": true, "latency": latency}, nil)
++}
+diff --git a/cmd/admin.go b/cmd/admin.go
+index a1d2dee..e4e55e8 100644
+--- a/cmd/admin.go
++++ b/cmd/admin.go
+@@ -60,5 +60,6 @@ func showAdmin() {
+ 	}
+ 	fmt.Println("First admin credentials:")
+ 	fmt.Println("\tUsername:\t", username)
+-	fmt.Println("\tPassword:\t", userpasswd)
++	fmt.Println("\tPassword:\t <hashed, not recoverable>")
++	fmt.Println("To set a new password, run: s-ui admin -username <user> -password <pass>")
+ }
+diff --git a/cmd/cmd.go b/cmd/cmd.go
+index df99053..d6c8c9f 100644
+--- a/cmd/cmd.go
++++ b/cmd/cmd.go
+@@ -16,6 +16,12 @@ func ParseCmd() {
+ 
+ 	adminCmd := flag.NewFlagSet("admin", flag.ExitOnError)
+ 	settingCmd := flag.NewFlagSet("setting", flag.ExitOnError)
++	tokenCmd := flag.NewFlagSet("token", flag.ExitOnError)
++
++	var tokenDesc string
++	var tokenNew bool
++	tokenCmd.StringVar(&tokenDesc, "desc", "", "token description")
++	tokenCmd.BoolVar(&tokenNew, "new", false, "force a new token instead of reusing an existing one")
+ 
+ 	var username string
+ 	var password string
+@@ -43,6 +49,7 @@ func ParseCmd() {
+ 		fmt.Println()
+ 		fmt.Println("Commands:")
+ 		fmt.Println("    admin          set/reset/show first admin credentials")
++		fmt.Println("    token          generate an APIv2 token (for central management)")
+ 		fmt.Println("    uri            Show panel URI")
+ 		fmt.Println("    migrate        migrate form older version")
+ 		fmt.Println("    setting        set/reset/show settings")
+@@ -84,6 +91,14 @@ func ParseCmd() {
+ 			showAdmin()
+ 		}
+ 
++	case "token":
++		err := tokenCmd.Parse(os.Args[2:])
++		if err != nil {
++			fmt.Println(err)
++			return
++		}
++		genToken(tokenDesc, tokenNew)
++
+ 	case "uri":
+ 		getPanelURI()
+ 
+diff --git a/cmd/token.go b/cmd/token.go
+new file mode 100644
+index 0000000..4fd8639
+--- /dev/null
++++ b/cmd/token.go
+@@ -0,0 +1,40 @@
++package cmd
++
++import (
++	"fmt"
++	"os"
++
++	"github.com/alireza0/s-ui/config"
++	"github.com/alireza0/s-ui/database"
++	"github.com/alireza0/s-ui/service"
++)
++
++// genToken prints an APIv2 token for the first admin to stdout (errors go to
++// stderr, so install scripts can capture the token). By default it reuses an
++// existing token if there is one; forceNew always creates a fresh one.
++func genToken(desc string, forceNew bool) {
++	if err := database.InitDB(config.GetDBPath()); err != nil {
++		fmt.Fprintln(os.Stderr, err)
++		return
++	}
++	userService := service.UserService{}
++	user, err := userService.GetFirstUser()
++	if err != nil {
++		fmt.Fprintln(os.Stderr, "get user failed:", err)
++		return
++	}
++	if desc == "" {
++		desc = "cli"
++	}
++	var token string
++	if forceNew {
++		token, err = userService.AddToken(user.Username, 0, desc)
++	} else {
++		token, err = userService.GetOrCreateToken(user.Username, desc)
++	}
++	if err != nil {
++		fmt.Fprintln(os.Stderr, "generate token failed:", err)
++		return
++	}
++	fmt.Println(token)
++}
+diff --git a/core/inbound_users.go b/core/inbound_users.go
+new file mode 100644
+index 0000000..2b84dc3
+--- /dev/null
++++ b/core/inbound_users.go
+@@ -0,0 +1,73 @@
++package core
++
++import (
++	suiAnytls "github.com/alireza0/s-ui/core/protocol/anytls"
++	suiHysteria "github.com/alireza0/s-ui/core/protocol/hysteria"
++	suiHysteria2 "github.com/alireza0/s-ui/core/protocol/hysteria2"
++	suiTrojan "github.com/alireza0/s-ui/core/protocol/trojan"
++	suiTuic "github.com/alireza0/s-ui/core/protocol/tuic"
++	suiVless "github.com/alireza0/s-ui/core/protocol/vless"
++	suiVmess "github.com/alireza0/s-ui/core/protocol/vmess"
++	"github.com/alireza0/s-ui/util/common"
++
++	"github.com/sagernet/sing-box/option"
++	"github.com/sagernet/sing-box/protocol/shadowsocks"
++	sbCommon "github.com/sagernet/sing/common"
++)
++
++func (c *Core) UpdateInboundUsers(config []byte) (bool, error) {
++	if !c.isRunning {
++		return false, common.NewError("sing-box is not running")
++	}
++	var inboundConfig option.Inbound
++	err := inboundConfig.UnmarshalJSONContext(c.GetCtx(), config)
++	if err != nil {
++		return false, err
++	}
++	inb, found := inbound_manager.Get(inboundConfig.Tag)
++	if !found {
++		return false, nil
++	}
++	switch options := inboundConfig.Options.(type) {
++	case *option.VLESSInboundOptions:
++		if in, ok := inb.(*suiVless.Inbound); ok {
++			return true, in.UpdateUsers(options.Users)
++		}
++	case *option.VMessInboundOptions:
++		if in, ok := inb.(*suiVmess.Inbound); ok {
++			return true, in.UpdateUsers(options.Users)
++		}
++	case *option.TrojanInboundOptions:
++		if in, ok := inb.(*suiTrojan.Inbound); ok {
++			return true, in.UpdateUsers(options.Users)
++		}
++	case *option.TUICInboundOptions:
++		if in, ok := inb.(*suiTuic.Inbound); ok {
++			return true, in.UpdateUsers(options.Users)
++		}
++	case *option.HysteriaInboundOptions:
++		if in, ok := inb.(*suiHysteria.Inbound); ok {
++			return true, in.UpdateUsers(options.Users)
++		}
++	case *option.Hysteria2InboundOptions:
++		if in, ok := inb.(*suiHysteria2.Inbound); ok {
++			return true, in.UpdateUsers(options.Users)
++		}
++	case *option.AnyTLSInboundOptions:
++		if in, ok := inb.(*suiAnytls.Inbound); ok {
++			return true, in.UpdateUsers(options.Users)
++		}
++	case *option.ShadowsocksInboundOptions:
++		if options.Managed || len(options.Users) == 0 {
++			return false, nil
++		}
++		if in, ok := inb.(*shadowsocks.MultiInbound); ok {
++			return true, in.UpdateUsers(sbCommon.Map(options.Users, func(it option.ShadowsocksUser) string {
++				return it.Name
++			}), sbCommon.Map(options.Users, func(it option.ShadowsocksUser) string {
++				return it.Password
++			}))
++		}
++	}
++	return false, nil
++}
+diff --git a/core/protocol/anytls/inbound.go b/core/protocol/anytls/inbound.go
+new file mode 100644
+index 0000000..52d7735
+--- /dev/null
++++ b/core/protocol/anytls/inbound.go
+@@ -0,0 +1,134 @@
++package anytls
++
++import (
++	"context"
++	"net"
++	"strings"
++
++	"github.com/sagernet/sing-box/adapter"
++	"github.com/sagernet/sing-box/adapter/inbound"
++	"github.com/sagernet/sing-box/common/listener"
++	"github.com/sagernet/sing-box/common/tls"
++	"github.com/sagernet/sing-box/common/uot"
++	C "github.com/sagernet/sing-box/constant"
++	"github.com/sagernet/sing-box/log"
++	"github.com/sagernet/sing-box/option"
++	"github.com/sagernet/sing/common"
++	"github.com/sagernet/sing/common/auth"
++	E "github.com/sagernet/sing/common/exceptions"
++	"github.com/sagernet/sing/common/logger"
++	M "github.com/sagernet/sing/common/metadata"
++	N "github.com/sagernet/sing/common/network"
++
++	anytls "github.com/anytls/sing-anytls"
++	"github.com/anytls/sing-anytls/padding"
++)
++
++func RegisterInbound(registry *inbound.Registry) {
++	inbound.Register[option.AnyTLSInboundOptions](registry, C.TypeAnyTLS, NewInbound)
++}
++
++type Inbound struct {
++	inbound.Adapter
++	tlsConfig tls.ServerConfig
++	router    adapter.ConnectionRouterEx
++	logger    logger.ContextLogger
++	listener  *listener.Listener
++	service   *anytls.Service
++}
++
++func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.AnyTLSInboundOptions) (adapter.Inbound, error) {
++	inbound := &Inbound{
++		Adapter: inbound.NewAdapter(C.TypeAnyTLS, tag),
++		router:  uot.NewRouter(router, logger),
++		logger:  logger,
++	}
++
++	if options.TLS != nil && options.TLS.Enabled {
++		tlsConfig, err := tls.NewServer(ctx, logger, common.PtrValueOrDefault(options.TLS))
++		if err != nil {
++			return nil, err
++		}
++		inbound.tlsConfig = tlsConfig
++	}
++
++	paddingScheme := padding.DefaultPaddingScheme
++	if len(options.PaddingScheme) > 0 {
++		paddingScheme = []byte(strings.Join(options.PaddingScheme, "\n"))
++	}
++
++	service, err := anytls.NewService(anytls.ServiceConfig{
++		Users: common.Map(options.Users, func(it option.AnyTLSUser) anytls.User {
++			return (anytls.User)(it)
++		}),
++		PaddingScheme: paddingScheme,
++		Handler:       (*inboundHandler)(inbound),
++		Logger:        logger,
++	})
++	if err != nil {
++		return nil, err
++	}
++	inbound.service = service
++	inbound.listener = listener.New(listener.Options{
++		Context:           ctx,
++		Logger:            logger,
++		Network:           []string{N.NetworkTCP},
++		Listen:            options.ListenOptions,
++		ConnectionHandler: inbound,
++	})
++	return inbound, nil
++}
++
++func (h *Inbound) Start(stage adapter.StartStage) error {
++	if stage != adapter.StartStateStart {
++		return nil
++	}
++	if h.tlsConfig != nil {
++		err := h.tlsConfig.Start()
++		if err != nil {
++			return err
++		}
++	}
++	return h.listener.Start()
++}
++
++func (h *Inbound) Close() error {
++	return common.Close(h.listener, h.tlsConfig)
++}
++
++func (h *Inbound) NewConnectionEx(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
++	if h.tlsConfig != nil {
++		tlsConn, err := tls.ServerHandshake(ctx, conn, h.tlsConfig)
++		if err != nil {
++			N.CloseOnHandshakeFailure(conn, onClose, err)
++			h.logger.ErrorContext(ctx, E.Cause(err, "process connection from ", metadata.Source, ": TLS handshake"))
++			return
++		}
++		conn = tlsConn
++	}
++	err := h.service.NewConnection(adapter.WithContext(ctx, &metadata), conn, metadata.Source, onClose)
++	if err != nil {
++		N.CloseOnHandshakeFailure(conn, onClose, err)
++		h.logger.ErrorContext(ctx, E.Cause(err, "process connection from ", metadata.Source))
++	}
++}
++
++type inboundHandler Inbound
++
++func (h *inboundHandler) NewConnectionEx(ctx context.Context, conn net.Conn, source M.Socksaddr, destination M.Socksaddr, onClose N.CloseHandlerFunc) {
++	var metadata adapter.InboundContext
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	//nolint:staticcheck
++	metadata.InboundDetour = h.listener.ListenOptions().Detour
++	//nolint:staticcheck
++	metadata.Source = source
++	metadata.Destination = destination.Unwrap()
++	if userName, _ := auth.UserFromContext[string](ctx); userName != "" {
++		metadata.User = userName
++		h.logger.InfoContext(ctx, "[", userName, "] inbound connection to ", metadata.Destination)
++	} else {
++		h.logger.InfoContext(ctx, "inbound connection to ", metadata.Destination)
++	}
++	h.router.RouteConnectionEx(ctx, conn, metadata, onClose)
++}
+diff --git a/core/protocol/anytls/users.go b/core/protocol/anytls/users.go
+new file mode 100644
+index 0000000..289319d
+--- /dev/null
++++ b/core/protocol/anytls/users.go
+@@ -0,0 +1,15 @@
++package anytls
++
++import (
++	"github.com/sagernet/sing-box/option"
++	"github.com/sagernet/sing/common"
++
++	anytls "github.com/anytls/sing-anytls"
++)
++
++func (h *Inbound) UpdateUsers(users []option.AnyTLSUser) error {
++	h.service.UpdateUsers(common.Map(users, func(it option.AnyTLSUser) anytls.User {
++		return (anytls.User)(it)
++	}))
++	return nil
++}
+diff --git a/core/protocol/hysteria/inbound.go b/core/protocol/hysteria/inbound.go
+new file mode 100644
+index 0000000..98d7cb8
+--- /dev/null
++++ b/core/protocol/hysteria/inbound.go
+@@ -0,0 +1,180 @@
++package hysteria
++
++import (
++	"context"
++	"net"
++	"time"
++
++	"github.com/sagernet/sing-box/adapter"
++	"github.com/sagernet/sing-box/adapter/inbound"
++	"github.com/sagernet/sing-box/common/listener"
++	"github.com/sagernet/sing-box/common/tls"
++	C "github.com/sagernet/sing-box/constant"
++	"github.com/sagernet/sing-box/log"
++	"github.com/sagernet/sing-box/option"
++	"github.com/sagernet/sing-quic/hysteria"
++	"github.com/sagernet/sing/common"
++	"github.com/sagernet/sing/common/auth"
++	M "github.com/sagernet/sing/common/metadata"
++	N "github.com/sagernet/sing/common/network"
++)
++
++func RegisterInbound(registry *inbound.Registry) {
++	inbound.Register[option.HysteriaInboundOptions](registry, C.TypeHysteria, NewInbound)
++}
++
++type Inbound struct {
++	inbound.Adapter
++	router       adapter.Router
++	logger       log.ContextLogger
++	listener     *listener.Listener
++	tlsConfig    tls.ServerConfig
++	service      *hysteria.Service[int]
++	userNameList []string
++}
++
++func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.HysteriaInboundOptions) (adapter.Inbound, error) {
++	options.UDPFragmentDefault = true
++	if options.TLS == nil || !options.TLS.Enabled {
++		return nil, C.ErrTLSRequired
++	}
++	tlsConfig, err := tls.NewServer(ctx, logger, common.PtrValueOrDefault(options.TLS))
++	if err != nil {
++		return nil, err
++	}
++	inbound := &Inbound{
++		Adapter: inbound.NewAdapter(C.TypeHysteria, tag),
++		router:  router,
++		logger:  logger,
++		listener: listener.New(listener.Options{
++			Context: ctx,
++			Logger:  logger,
++			Listen:  options.ListenOptions,
++		}),
++		tlsConfig: tlsConfig,
++	}
++	var sendBps, receiveBps uint64
++	if options.Up.Value() > 0 {
++		sendBps = options.Up.Value()
++	} else {
++		sendBps = uint64(options.UpMbps) * hysteria.MbpsToBps
++	}
++	if options.Down.Value() > 0 {
++		receiveBps = options.Down.Value()
++	} else {
++		receiveBps = uint64(options.DownMbps) * hysteria.MbpsToBps
++	}
++	var udpTimeout time.Duration
++	if options.UDPTimeout != 0 {
++		udpTimeout = time.Duration(options.UDPTimeout)
++	} else {
++		udpTimeout = C.UDPTimeout
++	}
++	service, err := hysteria.NewService[int](hysteria.ServiceOptions{
++		Context:       ctx,
++		Logger:        logger,
++		SendBPS:       sendBps,
++		ReceiveBPS:    receiveBps,
++		XPlusPassword: options.Obfs,
++		TLSConfig:     tlsConfig,
++		UDPTimeout:    udpTimeout,
++		Handler:       inbound,
++
++		// Legacy options
++
++		ConnReceiveWindow:   options.ReceiveWindowConn,
++		StreamReceiveWindow: options.ReceiveWindowClient,
++		MaxIncomingStreams:  int64(options.MaxConnClient),
++		DisableMTUDiscovery: options.DisableMTUDiscovery,
++	})
++	if err != nil {
++		return nil, err
++	}
++	userList := make([]int, 0, len(options.Users))
++	userNameList := make([]string, 0, len(options.Users))
++	userPasswordList := make([]string, 0, len(options.Users))
++	for index, user := range options.Users {
++		userList = append(userList, index)
++		userNameList = append(userNameList, user.Name)
++		var password string
++		if user.AuthString != "" {
++			password = user.AuthString
++		} else {
++			password = string(user.Auth)
++		}
++		userPasswordList = append(userPasswordList, password)
++	}
++	service.UpdateUsers(userList, userPasswordList)
++	inbound.service = service
++	inbound.userNameList = userNameList
++	return inbound, nil
++}
++
++func (h *Inbound) NewConnectionEx(ctx context.Context, conn net.Conn, source M.Socksaddr, destination M.Socksaddr, onClose N.CloseHandlerFunc) {
++	ctx = log.ContextWithNewID(ctx)
++	var metadata adapter.InboundContext
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	//nolint:staticcheck
++	metadata.InboundDetour = h.listener.ListenOptions().Detour
++	//nolint:staticcheck
++	metadata.OriginDestination = h.listener.UDPAddr()
++	metadata.Source = source
++	metadata.Destination = destination
++	h.logger.InfoContext(ctx, "inbound connection from ", metadata.Source)
++	userID, _ := auth.UserFromContext[int](ctx)
++	if userName := h.userNameList[userID]; userName != "" {
++		metadata.User = userName
++		h.logger.InfoContext(ctx, "[", userName, "] inbound connection to ", metadata.Destination)
++	} else {
++		h.logger.InfoContext(ctx, "inbound connection to ", metadata.Destination)
++	}
++	h.router.RouteConnectionEx(ctx, conn, metadata, onClose)
++}
++
++func (h *Inbound) NewPacketConnectionEx(ctx context.Context, conn N.PacketConn, source M.Socksaddr, destination M.Socksaddr, onClose N.CloseHandlerFunc) {
++	ctx = log.ContextWithNewID(ctx)
++	var metadata adapter.InboundContext
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	//nolint:staticcheck
++	metadata.InboundDetour = h.listener.ListenOptions().Detour
++	//nolint:staticcheck
++	metadata.OriginDestination = h.listener.UDPAddr()
++	metadata.Source = source
++	metadata.Destination = destination
++	h.logger.InfoContext(ctx, "inbound packet connection from ", metadata.Source)
++	userID, _ := auth.UserFromContext[int](ctx)
++	if userName := h.userNameList[userID]; userName != "" {
++		metadata.User = userName
++		h.logger.InfoContext(ctx, "[", userName, "] inbound packet connection to ", metadata.Destination)
++	} else {
++		h.logger.InfoContext(ctx, "inbound packet connection to ", metadata.Destination)
++	}
++	h.router.RoutePacketConnectionEx(ctx, conn, metadata, onClose)
++}
++
++func (h *Inbound) Start(stage adapter.StartStage) error {
++	if stage != adapter.StartStateStart {
++		return nil
++	}
++	if h.tlsConfig != nil {
++		err := h.tlsConfig.Start()
++		if err != nil {
++			return err
++		}
++	}
++	packetConn, err := h.listener.ListenUDP()
++	if err != nil {
++		return err
++	}
++	return h.service.Start(packetConn)
++}
++
++func (h *Inbound) Close() error {
++	return common.Close(
++		h.listener,
++		h.tlsConfig,
++		common.PtrOrNil(h.service),
++	)
++}
+diff --git a/core/protocol/hysteria/users.go b/core/protocol/hysteria/users.go
+new file mode 100644
+index 0000000..27e740f
+--- /dev/null
++++ b/core/protocol/hysteria/users.go
+@@ -0,0 +1,25 @@
++package hysteria
++
++import (
++	"github.com/sagernet/sing-box/option"
++)
++
++func (h *Inbound) UpdateUsers(users []option.HysteriaUser) error {
++	userList := make([]int, 0, len(users))
++	userNameList := make([]string, 0, len(users))
++	userPasswordList := make([]string, 0, len(users))
++	for index, user := range users {
++		userList = append(userList, index)
++		userNameList = append(userNameList, user.Name)
++		var password string
++		if user.AuthString != "" {
++			password = user.AuthString
++		} else {
++			password = string(user.Auth)
++		}
++		userPasswordList = append(userPasswordList, password)
++	}
++	h.service.UpdateUsers(userList, userPasswordList)
++	h.userNameList = userNameList
++	return nil
++}
+diff --git a/core/protocol/hysteria2/inbound.go b/core/protocol/hysteria2/inbound.go
+new file mode 100644
+index 0000000..bb59807
+--- /dev/null
++++ b/core/protocol/hysteria2/inbound.go
+@@ -0,0 +1,213 @@
++package hysteria2
++
++import (
++	"context"
++	"net"
++	"net/http"
++	"net/http/httputil"
++	"net/url"
++	"time"
++
++	"github.com/sagernet/sing-box/adapter"
++	"github.com/sagernet/sing-box/adapter/inbound"
++	"github.com/sagernet/sing-box/common/listener"
++	"github.com/sagernet/sing-box/common/tls"
++	C "github.com/sagernet/sing-box/constant"
++	"github.com/sagernet/sing-box/log"
++	"github.com/sagernet/sing-box/option"
++	"github.com/sagernet/sing-quic/hysteria"
++	"github.com/sagernet/sing-quic/hysteria2"
++	"github.com/sagernet/sing/common"
++	"github.com/sagernet/sing/common/auth"
++	E "github.com/sagernet/sing/common/exceptions"
++	M "github.com/sagernet/sing/common/metadata"
++	N "github.com/sagernet/sing/common/network"
++)
++
++func RegisterInbound(registry *inbound.Registry) {
++	inbound.Register[option.Hysteria2InboundOptions](registry, C.TypeHysteria2, NewInbound)
++}
++
++type Inbound struct {
++	inbound.Adapter
++	router       adapter.Router
++	logger       log.ContextLogger
++	listener     *listener.Listener
++	tlsConfig    tls.ServerConfig
++	service      *hysteria2.Service[int]
++	userNameList []string
++}
++
++func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.Hysteria2InboundOptions) (adapter.Inbound, error) {
++	options.UDPFragmentDefault = true
++	if options.TLS == nil || !options.TLS.Enabled {
++		return nil, C.ErrTLSRequired
++	}
++	tlsConfig, err := tls.NewServer(ctx, logger, common.PtrValueOrDefault(options.TLS))
++	if err != nil {
++		return nil, err
++	}
++	var salamanderPassword string
++	if options.Obfs != nil {
++		if options.Obfs.Password == "" {
++			return nil, E.New("missing obfs password")
++		}
++		switch options.Obfs.Type {
++		case hysteria2.ObfsTypeSalamander:
++			salamanderPassword = options.Obfs.Password
++		default:
++			return nil, E.New("unknown obfs type: ", options.Obfs.Type)
++		}
++	}
++	var masqueradeHandler http.Handler
++	if options.Masquerade != nil && options.Masquerade.Type != "" {
++		switch options.Masquerade.Type {
++		case C.Hysterai2MasqueradeTypeFile:
++			masqueradeHandler = http.FileServer(http.Dir(options.Masquerade.FileOptions.Directory))
++		case C.Hysterai2MasqueradeTypeProxy:
++			masqueradeURL, err := url.Parse(options.Masquerade.ProxyOptions.URL)
++			if err != nil {
++				return nil, E.Cause(err, "parse masquerade URL")
++			}
++			masqueradeHandler = &httputil.ReverseProxy{
++				Rewrite: func(r *httputil.ProxyRequest) {
++					r.SetURL(masqueradeURL)
++					if !options.Masquerade.ProxyOptions.RewriteHost {
++						r.Out.Host = r.In.Host
++					}
++				},
++				ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
++					w.WriteHeader(http.StatusBadGateway)
++				},
++			}
++		case C.Hysterai2MasqueradeTypeString:
++			masqueradeHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++				if options.Masquerade.StringOptions.StatusCode != 0 {
++					w.WriteHeader(options.Masquerade.StringOptions.StatusCode)
++				}
++				for key, values := range options.Masquerade.StringOptions.Headers {
++					for _, value := range values {
++						w.Header().Add(key, value)
++					}
++				}
++				w.Write([]byte(options.Masquerade.StringOptions.Content))
++			})
++		default:
++			return nil, E.New("unknown masquerade type: ", options.Masquerade.Type)
++		}
++	}
++	inbound := &Inbound{
++		Adapter: inbound.NewAdapter(C.TypeHysteria2, tag),
++		router:  router,
++		logger:  logger,
++		listener: listener.New(listener.Options{
++			Context: ctx,
++			Logger:  logger,
++			Listen:  options.ListenOptions,
++		}),
++		tlsConfig: tlsConfig,
++	}
++	var udpTimeout time.Duration
++	if options.UDPTimeout != 0 {
++		udpTimeout = time.Duration(options.UDPTimeout)
++	} else {
++		udpTimeout = C.UDPTimeout
++	}
++	service, err := hysteria2.NewService[int](hysteria2.ServiceOptions{
++		Context:               ctx,
++		Logger:                logger,
++		BrutalDebug:           options.BrutalDebug,
++		SendBPS:               uint64(options.UpMbps * hysteria.MbpsToBps),
++		ReceiveBPS:            uint64(options.DownMbps * hysteria.MbpsToBps),
++		SalamanderPassword:    salamanderPassword,
++		TLSConfig:             tlsConfig,
++		IgnoreClientBandwidth: options.IgnoreClientBandwidth,
++		UDPTimeout:            udpTimeout,
++		Handler:               inbound,
++		MasqueradeHandler:     masqueradeHandler,
++	})
++	if err != nil {
++		return nil, err
++	}
++	userList := make([]int, 0, len(options.Users))
++	userNameList := make([]string, 0, len(options.Users))
++	userPasswordList := make([]string, 0, len(options.Users))
++	for index, user := range options.Users {
++		userList = append(userList, index)
++		userNameList = append(userNameList, user.Name)
++		userPasswordList = append(userPasswordList, user.Password)
++	}
++	service.UpdateUsers(userList, userPasswordList)
++	inbound.service = service
++	inbound.userNameList = userNameList
++	return inbound, nil
++}
++
++func (h *Inbound) NewConnectionEx(ctx context.Context, conn net.Conn, source M.Socksaddr, destination M.Socksaddr, onClose N.CloseHandlerFunc) {
++	ctx = log.ContextWithNewID(ctx)
++	var metadata adapter.InboundContext
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	//nolint:staticcheck
++	metadata.InboundDetour = h.listener.ListenOptions().Detour
++	//nolint:staticcheck
++	metadata.OriginDestination = h.listener.UDPAddr()
++	metadata.Source = source
++	metadata.Destination = destination
++	h.logger.InfoContext(ctx, "inbound connection from ", metadata.Source)
++	userID, _ := auth.UserFromContext[int](ctx)
++	if userName := h.userNameList[userID]; userName != "" {
++		metadata.User = userName
++		h.logger.InfoContext(ctx, "[", userName, "] inbound connection to ", metadata.Destination)
++	} else {
++		h.logger.InfoContext(ctx, "inbound connection to ", metadata.Destination)
++	}
++	h.router.RouteConnectionEx(ctx, conn, metadata, onClose)
++}
++
++func (h *Inbound) NewPacketConnectionEx(ctx context.Context, conn N.PacketConn, source M.Socksaddr, destination M.Socksaddr, onClose N.CloseHandlerFunc) {
++	ctx = log.ContextWithNewID(ctx)
++	var metadata adapter.InboundContext
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	//nolint:staticcheck
++	metadata.InboundDetour = h.listener.ListenOptions().Detour
++	//nolint:staticcheck
++	metadata.OriginDestination = h.listener.UDPAddr()
++	metadata.Source = source
++	metadata.Destination = destination
++	h.logger.InfoContext(ctx, "inbound packet connection from ", metadata.Source)
++	userID, _ := auth.UserFromContext[int](ctx)
++	if userName := h.userNameList[userID]; userName != "" {
++		metadata.User = userName
++		h.logger.InfoContext(ctx, "[", userName, "] inbound packet connection to ", metadata.Destination)
++	} else {
++		h.logger.InfoContext(ctx, "inbound packet connection to ", metadata.Destination)
++	}
++	h.router.RoutePacketConnectionEx(ctx, conn, metadata, onClose)
++}
++
++func (h *Inbound) Start(stage adapter.StartStage) error {
++	if stage != adapter.StartStateStart {
++		return nil
++	}
++	if h.tlsConfig != nil {
++		err := h.tlsConfig.Start()
++		if err != nil {
++			return err
++		}
++	}
++	packetConn, err := h.listener.ListenUDP()
++	if err != nil {
++		return err
++	}
++	return h.service.Start(packetConn)
++}
++
++func (h *Inbound) Close() error {
++	return common.Close(
++		h.listener,
++		h.tlsConfig,
++		common.PtrOrNil(h.service),
++	)
++}
+diff --git a/core/protocol/hysteria2/users.go b/core/protocol/hysteria2/users.go
+new file mode 100644
+index 0000000..ce1dd3c
+--- /dev/null
++++ b/core/protocol/hysteria2/users.go
+@@ -0,0 +1,19 @@
++package hysteria2
++
++import (
++	"github.com/sagernet/sing-box/option"
++)
++
++func (h *Inbound) UpdateUsers(users []option.Hysteria2User) error {
++	userList := make([]int, 0, len(users))
++	userNameList := make([]string, 0, len(users))
++	userPasswordList := make([]string, 0, len(users))
++	for index, user := range users {
++		userList = append(userList, index)
++		userNameList = append(userNameList, user.Name)
++		userPasswordList = append(userPasswordList, user.Password)
++	}
++	h.service.UpdateUsers(userList, userPasswordList)
++	h.userNameList = userNameList
++	return nil
++}
+diff --git a/core/protocol/trojan/inbound.go b/core/protocol/trojan/inbound.go
+new file mode 100644
+index 0000000..6e11c08
+--- /dev/null
++++ b/core/protocol/trojan/inbound.go
+@@ -0,0 +1,262 @@
++package trojan
++
++import (
++	"context"
++	"net"
++	"os"
++
++	"github.com/sagernet/sing-box/adapter"
++	"github.com/sagernet/sing-box/adapter/inbound"
++	"github.com/sagernet/sing-box/common/listener"
++	"github.com/sagernet/sing-box/common/mux"
++	"github.com/sagernet/sing-box/common/tls"
++	C "github.com/sagernet/sing-box/constant"
++	"github.com/sagernet/sing-box/log"
++	"github.com/sagernet/sing-box/option"
++	"github.com/sagernet/sing-box/transport/trojan"
++	"github.com/sagernet/sing-box/transport/v2ray"
++	"github.com/sagernet/sing/common"
++	"github.com/sagernet/sing/common/auth"
++	E "github.com/sagernet/sing/common/exceptions"
++	F "github.com/sagernet/sing/common/format"
++	M "github.com/sagernet/sing/common/metadata"
++	N "github.com/sagernet/sing/common/network"
++)
++
++func RegisterInbound(registry *inbound.Registry) {
++	inbound.Register[option.TrojanInboundOptions](registry, C.TypeTrojan, NewInbound)
++}
++
++var _ adapter.TCPInjectableInbound = (*Inbound)(nil)
++
++type Inbound struct {
++	inbound.Adapter
++	router                   adapter.ConnectionRouterEx
++	logger                   log.ContextLogger
++	listener                 *listener.Listener
++	service                  *trojan.Service[int]
++	users                    []option.TrojanUser
++	tlsConfig                tls.ServerConfig
++	fallbackAddr             M.Socksaddr
++	fallbackAddrTLSNextProto map[string]M.Socksaddr
++	transport                adapter.V2RayServerTransport
++}
++
++func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.TrojanInboundOptions) (adapter.Inbound, error) {
++	inbound := &Inbound{
++		Adapter: inbound.NewAdapter(C.TypeTrojan, tag),
++		router:  router,
++		logger:  logger,
++		users:   options.Users,
++	}
++	if options.TLS != nil {
++		tlsConfig, err := tls.NewServerWithOptions(tls.ServerOptions{
++			Context: ctx,
++			Logger:  logger,
++			Options: common.PtrValueOrDefault(options.TLS),
++			KTLSCompatible: common.PtrValueOrDefault(options.Transport).Type == "" &&
++				!common.PtrValueOrDefault(options.Multiplex).Enabled,
++		})
++		if err != nil {
++			return nil, err
++		}
++		inbound.tlsConfig = tlsConfig
++	}
++	var fallbackHandler N.TCPConnectionHandlerEx
++	if options.Fallback != nil && options.Fallback.Server != "" || len(options.FallbackForALPN) > 0 {
++		if options.Fallback != nil && options.Fallback.Server != "" {
++			inbound.fallbackAddr = options.Fallback.Build()
++			if !inbound.fallbackAddr.IsValid() {
++				return nil, E.New("invalid fallback address: ", inbound.fallbackAddr)
++			}
++		}
++		if len(options.FallbackForALPN) > 0 {
++			if inbound.tlsConfig == nil {
++				return nil, E.New("fallback for ALPN is not supported without TLS")
++			}
++			fallbackAddrNextProto := make(map[string]M.Socksaddr)
++			for nextProto, destination := range options.FallbackForALPN {
++				fallbackAddr := destination.Build()
++				if !fallbackAddr.IsValid() {
++					return nil, E.New("invalid fallback address for ALPN ", nextProto, ": ", fallbackAddr)
++				}
++				fallbackAddrNextProto[nextProto] = fallbackAddr
++			}
++			inbound.fallbackAddrTLSNextProto = fallbackAddrNextProto
++		}
++		fallbackHandler = adapter.NewUpstreamContextHandlerEx(inbound.fallbackConnection, nil)
++	}
++	service := trojan.NewService[int](adapter.NewUpstreamContextHandlerEx(inbound.newConnection, inbound.newPacketConnection), fallbackHandler, logger)
++	err := service.UpdateUsers(common.MapIndexed(options.Users, func(index int, it option.TrojanUser) int {
++		return index
++	}), common.Map(options.Users, func(it option.TrojanUser) string {
++		return it.Password
++	}))
++	if err != nil {
++		return nil, err
++	}
++	if options.Transport != nil {
++		inbound.transport, err = v2ray.NewServerTransport(ctx, logger, common.PtrValueOrDefault(options.Transport), inbound.tlsConfig, (*inboundTransportHandler)(inbound))
++		if err != nil {
++			return nil, E.Cause(err, "create server transport: ", options.Transport.Type)
++		}
++	}
++	inbound.router, err = mux.NewRouterWithOptions(inbound.router, logger, common.PtrValueOrDefault(options.Multiplex))
++	if err != nil {
++		return nil, err
++	}
++	inbound.service = service
++	inbound.listener = listener.New(listener.Options{
++		Context:           ctx,
++		Logger:            logger,
++		Network:           []string{N.NetworkTCP},
++		Listen:            options.ListenOptions,
++		ConnectionHandler: inbound,
++	})
++	return inbound, nil
++}
++
++func (h *Inbound) Start(stage adapter.StartStage) error {
++	if stage != adapter.StartStateStart {
++		return nil
++	}
++	if h.tlsConfig != nil {
++		err := h.tlsConfig.Start()
++		if err != nil {
++			return E.Cause(err, "create TLS config")
++		}
++	}
++	if h.transport == nil {
++		return h.listener.Start()
++	}
++	if common.Contains(h.transport.Network(), N.NetworkTCP) {
++		tcpListener, err := h.listener.ListenTCP()
++		if err != nil {
++			return err
++		}
++		go func() {
++			sErr := h.transport.Serve(tcpListener)
++			if sErr != nil && !E.IsClosed(sErr) {
++				h.logger.Error("transport serve error: ", sErr)
++			}
++		}()
++	}
++	if common.Contains(h.transport.Network(), N.NetworkUDP) {
++		udpConn, err := h.listener.ListenUDP()
++		if err != nil {
++			return err
++		}
++		go func() {
++			sErr := h.transport.ServePacket(udpConn)
++			if sErr != nil && !E.IsClosed(sErr) {
++				h.logger.Error("transport serve error: ", sErr)
++			}
++		}()
++	}
++	return nil
++}
++
++func (h *Inbound) Close() error {
++	return common.Close(
++		h.listener,
++		h.tlsConfig,
++		h.transport,
++	)
++}
++
++func (h *Inbound) NewConnectionEx(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
++	if h.tlsConfig != nil && h.transport == nil {
++		tlsConn, err := tls.ServerHandshake(ctx, conn, h.tlsConfig)
++		if err != nil {
++			N.CloseOnHandshakeFailure(conn, onClose, err)
++			h.logger.ErrorContext(ctx, E.Cause(err, "process connection from ", metadata.Source, ": TLS handshake"))
++			return
++		}
++		conn = tlsConn
++	}
++	err := h.service.NewConnection(adapter.WithContext(ctx, &metadata), conn, metadata.Source, onClose)
++	if err != nil {
++		N.CloseOnHandshakeFailure(conn, onClose, err)
++		h.logger.ErrorContext(ctx, E.Cause(err, "process connection from ", metadata.Source))
++	}
++}
++
++func (h *Inbound) newConnection(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	userIndex, loaded := auth.UserFromContext[int](ctx)
++	if !loaded {
++		N.CloseOnHandshakeFailure(conn, onClose, os.ErrInvalid)
++		return
++	}
++	user := h.users[userIndex].Name
++	if user == "" {
++		user = F.ToString(userIndex)
++	} else {
++		metadata.User = user
++	}
++	h.logger.InfoContext(ctx, "[", user, "] inbound connection to ", metadata.Destination)
++	h.router.RouteConnectionEx(ctx, conn, metadata, onClose)
++}
++
++func (h *Inbound) newPacketConnection(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	userIndex, loaded := auth.UserFromContext[int](ctx)
++	if !loaded {
++		N.CloseOnHandshakeFailure(conn, onClose, os.ErrInvalid)
++		return
++	}
++	user := h.users[userIndex].Name
++	if user == "" {
++		user = F.ToString(userIndex)
++	} else {
++		metadata.User = user
++	}
++	h.logger.InfoContext(ctx, "[", user, "] inbound packet connection to ", metadata.Destination)
++	h.router.RoutePacketConnectionEx(ctx, conn, metadata, onClose)
++}
++
++func (h *Inbound) fallbackConnection(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
++	var fallbackAddr M.Socksaddr
++	if len(h.fallbackAddrTLSNextProto) > 0 {
++		if tlsConn, loaded := common.Cast[tls.Conn](conn); loaded {
++			connectionState := tlsConn.ConnectionState()
++			if connectionState.NegotiatedProtocol != "" {
++				if fallbackAddr, loaded = h.fallbackAddrTLSNextProto[connectionState.NegotiatedProtocol]; !loaded {
++					h.logger.DebugContext(ctx, "process connection from ", metadata.Source, ": fallback disabled for ALPN: ", connectionState.NegotiatedProtocol)
++					N.CloseOnHandshakeFailure(conn, onClose, os.ErrInvalid)
++					return
++				}
++			}
++		}
++	}
++	if !fallbackAddr.IsValid() {
++		if !h.fallbackAddr.IsValid() {
++			h.logger.DebugContext(ctx, "process connection from ", metadata.Source, ": fallback disabled by default")
++			N.CloseOnHandshakeFailure(conn, onClose, os.ErrInvalid)
++			return
++		}
++		fallbackAddr = h.fallbackAddr
++	}
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	metadata.Destination = fallbackAddr
++	h.logger.InfoContext(ctx, "fallback connection to ", fallbackAddr)
++	h.router.RouteConnectionEx(ctx, conn, metadata, onClose)
++}
++
++var _ adapter.V2RayServerTransportHandler = (*inboundTransportHandler)(nil)
++
++type inboundTransportHandler Inbound
++
++func (h *inboundTransportHandler) NewConnectionEx(ctx context.Context, conn net.Conn, source M.Socksaddr, destination M.Socksaddr, onClose N.CloseHandlerFunc) {
++	var metadata adapter.InboundContext
++	metadata.Source = source
++	metadata.Destination = destination
++	//nolint:staticcheck
++	metadata.InboundDetour = h.listener.ListenOptions().Detour
++	//nolint:staticcheck
++	h.logger.InfoContext(ctx, "inbound connection from ", metadata.Source)
++	(*Inbound)(h).NewConnectionEx(ctx, conn, metadata, onClose)
++}
+diff --git a/core/protocol/trojan/users.go b/core/protocol/trojan/users.go
+new file mode 100644
+index 0000000..41db1c4
+--- /dev/null
++++ b/core/protocol/trojan/users.go
+@@ -0,0 +1,19 @@
++package trojan
++
++import (
++	"github.com/sagernet/sing-box/option"
++	"github.com/sagernet/sing/common"
++)
++
++func (h *Inbound) UpdateUsers(users []option.TrojanUser) error {
++	err := h.service.UpdateUsers(common.MapIndexed(users, func(index int, _ option.TrojanUser) int {
++		return index
++	}), common.Map(users, func(it option.TrojanUser) string {
++		return it.Password
++	}))
++	if err != nil {
++		return err
++	}
++	h.users = users
++	return nil
++}
+diff --git a/core/protocol/tuic/inbound.go b/core/protocol/tuic/inbound.go
+new file mode 100644
+index 0000000..600c7f9
+--- /dev/null
++++ b/core/protocol/tuic/inbound.go
+@@ -0,0 +1,170 @@
++package tuic
++
++import (
++	"context"
++	"net"
++	"time"
++
++	"github.com/sagernet/sing-box/adapter"
++	"github.com/sagernet/sing-box/adapter/inbound"
++	"github.com/sagernet/sing-box/common/listener"
++	"github.com/sagernet/sing-box/common/tls"
++	"github.com/sagernet/sing-box/common/uot"
++	C "github.com/sagernet/sing-box/constant"
++	"github.com/sagernet/sing-box/log"
++	"github.com/sagernet/sing-box/option"
++	"github.com/sagernet/sing-quic/tuic"
++	"github.com/sagernet/sing/common"
++	"github.com/sagernet/sing/common/auth"
++	E "github.com/sagernet/sing/common/exceptions"
++	M "github.com/sagernet/sing/common/metadata"
++	N "github.com/sagernet/sing/common/network"
++
++	"github.com/gofrs/uuid/v5"
++)
++
++func RegisterInbound(registry *inbound.Registry) {
++	inbound.Register[option.TUICInboundOptions](registry, C.TypeTUIC, NewInbound)
++}
++
++type Inbound struct {
++	inbound.Adapter
++	router       adapter.ConnectionRouterEx
++	logger       log.ContextLogger
++	listener     *listener.Listener
++	tlsConfig    tls.ServerConfig
++	server       *tuic.Service[int]
++	userNameList []string
++}
++
++func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.TUICInboundOptions) (adapter.Inbound, error) {
++	options.UDPFragmentDefault = true
++	if options.TLS == nil || !options.TLS.Enabled {
++		return nil, C.ErrTLSRequired
++	}
++	tlsConfig, err := tls.NewServer(ctx, logger, common.PtrValueOrDefault(options.TLS))
++	if err != nil {
++		return nil, err
++	}
++	inbound := &Inbound{
++		Adapter: inbound.NewAdapter(C.TypeTUIC, tag),
++		router:  uot.NewRouter(router, logger),
++		logger:  logger,
++		listener: listener.New(listener.Options{
++			Context: ctx,
++			Logger:  logger,
++			Listen:  options.ListenOptions,
++		}),
++		tlsConfig: tlsConfig,
++	}
++	var udpTimeout time.Duration
++	if options.UDPTimeout != 0 {
++		udpTimeout = time.Duration(options.UDPTimeout)
++	} else {
++		udpTimeout = C.UDPTimeout
++	}
++	service, err := tuic.NewService[int](tuic.ServiceOptions{
++		Context:           ctx,
++		Logger:            logger,
++		TLSConfig:         tlsConfig,
++		CongestionControl: options.CongestionControl,
++		AuthTimeout:       time.Duration(options.AuthTimeout),
++		ZeroRTTHandshake:  options.ZeroRTTHandshake,
++		Heartbeat:         time.Duration(options.Heartbeat),
++		UDPTimeout:        udpTimeout,
++		Handler:           inbound,
++	})
++	if err != nil {
++		return nil, err
++	}
++	var userList []int
++	var userNameList []string
++	var userUUIDList [][16]byte
++	var userPasswordList []string
++	for index, user := range options.Users {
++		if user.UUID == "" {
++			return nil, E.New("missing uuid for user ", index)
++		}
++		userUUID, err := uuid.FromString(user.UUID)
++		if err != nil {
++			return nil, E.Cause(err, "invalid uuid for user ", index)
++		}
++		userList = append(userList, index)
++		userNameList = append(userNameList, user.Name)
++		userUUIDList = append(userUUIDList, userUUID)
++		userPasswordList = append(userPasswordList, user.Password)
++	}
++	service.UpdateUsers(userList, userUUIDList, userPasswordList)
++	inbound.server = service
++	inbound.userNameList = userNameList
++	return inbound, nil
++}
++
++func (h *Inbound) NewConnectionEx(ctx context.Context, conn net.Conn, source M.Socksaddr, destination M.Socksaddr, onClose N.CloseHandlerFunc) {
++	ctx = log.ContextWithNewID(ctx)
++	var metadata adapter.InboundContext
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	//nolint:staticcheck
++	metadata.InboundDetour = h.listener.ListenOptions().Detour
++	//nolint:staticcheck
++	metadata.OriginDestination = h.listener.UDPAddr()
++	metadata.Source = source
++	metadata.Destination = destination
++	h.logger.InfoContext(ctx, "inbound connection from ", metadata.Source)
++	userID, _ := auth.UserFromContext[int](ctx)
++	if userName := h.userNameList[userID]; userName != "" {
++		metadata.User = userName
++		h.logger.InfoContext(ctx, "[", userName, "] inbound connection to ", metadata.Destination)
++	} else {
++		h.logger.InfoContext(ctx, "inbound connection to ", metadata.Destination)
++	}
++	h.router.RouteConnectionEx(ctx, conn, metadata, onClose)
++}
++
++func (h *Inbound) NewPacketConnectionEx(ctx context.Context, conn N.PacketConn, source M.Socksaddr, destination M.Socksaddr, onClose N.CloseHandlerFunc) {
++	ctx = log.ContextWithNewID(ctx)
++	var metadata adapter.InboundContext
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	//nolint:staticcheck
++	metadata.InboundDetour = h.listener.ListenOptions().Detour
++	//nolint:staticcheck
++	metadata.OriginDestination = h.listener.UDPAddr()
++	metadata.Source = source
++	metadata.Destination = destination
++	h.logger.InfoContext(ctx, "inbound packet connection from ", metadata.Source)
++	userID, _ := auth.UserFromContext[int](ctx)
++	if userName := h.userNameList[userID]; userName != "" {
++		metadata.User = userName
++		h.logger.InfoContext(ctx, "[", userName, "] inbound packet connection to ", metadata.Destination)
++	} else {
++		h.logger.InfoContext(ctx, "inbound packet connection to ", metadata.Destination)
++	}
++	h.router.RoutePacketConnectionEx(ctx, conn, metadata, onClose)
++}
++
++func (h *Inbound) Start(stage adapter.StartStage) error {
++	if stage != adapter.StartStateStart {
++		return nil
++	}
++	if h.tlsConfig != nil {
++		err := h.tlsConfig.Start()
++		if err != nil {
++			return err
++		}
++	}
++	packetConn, err := h.listener.ListenUDP()
++	if err != nil {
++		return err
++	}
++	return h.server.Start(packetConn)
++}
++
++func (h *Inbound) Close() error {
++	return common.Close(
++		h.listener,
++		h.tlsConfig,
++		common.PtrOrNil(h.server),
++	)
++}
+diff --git a/core/protocol/tuic/users.go b/core/protocol/tuic/users.go
+new file mode 100644
+index 0000000..fd21188
+--- /dev/null
++++ b/core/protocol/tuic/users.go
+@@ -0,0 +1,31 @@
++package tuic
++
++import (
++	"github.com/sagernet/sing-box/option"
++	E "github.com/sagernet/sing/common/exceptions"
++
++	"github.com/gofrs/uuid/v5"
++)
++
++func (h *Inbound) UpdateUsers(users []option.TUICUser) error {
++	userList := make([]int, 0, len(users))
++	userNameList := make([]string, 0, len(users))
++	userUUIDList := make([][16]byte, 0, len(users))
++	userPasswordList := make([]string, 0, len(users))
++	for index, user := range users {
++		if user.UUID == "" {
++			return E.New("missing uuid for user ", index)
++		}
++		userUUID, err := uuid.FromString(user.UUID)
++		if err != nil {
++			return E.Cause(err, "invalid uuid for user ", index)
++		}
++		userList = append(userList, index)
++		userNameList = append(userNameList, user.Name)
++		userUUIDList = append(userUUIDList, userUUID)
++		userPasswordList = append(userPasswordList, user.Password)
++	}
++	h.server.UpdateUsers(userList, userUUIDList, userPasswordList)
++	h.userNameList = userNameList
++	return nil
++}
+diff --git a/core/protocol/vless/inbound.go b/core/protocol/vless/inbound.go
+new file mode 100644
+index 0000000..75cd412
+--- /dev/null
++++ b/core/protocol/vless/inbound.go
+@@ -0,0 +1,222 @@
++package vless
++
++import (
++	"context"
++	"net"
++	"os"
++
++	"github.com/sagernet/sing-box/adapter"
++	"github.com/sagernet/sing-box/adapter/inbound"
++	"github.com/sagernet/sing-box/common/listener"
++	"github.com/sagernet/sing-box/common/mux"
++	"github.com/sagernet/sing-box/common/tls"
++	"github.com/sagernet/sing-box/common/uot"
++	C "github.com/sagernet/sing-box/constant"
++	"github.com/sagernet/sing-box/log"
++	"github.com/sagernet/sing-box/option"
++	"github.com/sagernet/sing-box/transport/v2ray"
++	"github.com/sagernet/sing-vmess/packetaddr"
++	"github.com/sagernet/sing-vmess/vless"
++	"github.com/sagernet/sing/common"
++	"github.com/sagernet/sing/common/auth"
++	"github.com/sagernet/sing/common/bufio"
++	E "github.com/sagernet/sing/common/exceptions"
++	F "github.com/sagernet/sing/common/format"
++	"github.com/sagernet/sing/common/logger"
++	M "github.com/sagernet/sing/common/metadata"
++	N "github.com/sagernet/sing/common/network"
++)
++
++func RegisterInbound(registry *inbound.Registry) {
++	inbound.Register[option.VLESSInboundOptions](registry, C.TypeVLESS, NewInbound)
++}
++
++var _ adapter.TCPInjectableInbound = (*Inbound)(nil)
++
++type Inbound struct {
++	inbound.Adapter
++	ctx       context.Context
++	router    adapter.ConnectionRouterEx
++	logger    logger.ContextLogger
++	listener  *listener.Listener
++	users     []option.VLESSUser
++	service   *vless.Service[int]
++	tlsConfig tls.ServerConfig
++	transport adapter.V2RayServerTransport
++}
++
++func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.VLESSInboundOptions) (adapter.Inbound, error) {
++	inbound := &Inbound{
++		Adapter: inbound.NewAdapter(C.TypeVLESS, tag),
++		ctx:     ctx,
++		router:  uot.NewRouter(router, logger),
++		logger:  logger,
++		users:   options.Users,
++	}
++	var err error
++	inbound.router, err = mux.NewRouterWithOptions(inbound.router, logger, common.PtrValueOrDefault(options.Multiplex))
++	if err != nil {
++		return nil, err
++	}
++	service := vless.NewService[int](logger, adapter.NewUpstreamContextHandlerEx(inbound.newConnectionEx, inbound.newPacketConnectionEx))
++	service.UpdateUsers(common.MapIndexed(inbound.users, func(index int, _ option.VLESSUser) int {
++		return index
++	}), common.Map(inbound.users, func(it option.VLESSUser) string {
++		return it.UUID
++	}), common.Map(inbound.users, func(it option.VLESSUser) string {
++		return it.Flow
++	}))
++	inbound.service = service
++	if options.TLS != nil {
++		inbound.tlsConfig, err = tls.NewServerWithOptions(tls.ServerOptions{
++			Context: ctx,
++			Logger:  logger,
++			Options: common.PtrValueOrDefault(options.TLS),
++			KTLSCompatible: common.PtrValueOrDefault(options.Transport).Type == "" &&
++				!common.PtrValueOrDefault(options.Multiplex).Enabled &&
++				common.All(options.Users, func(it option.VLESSUser) bool {
++					return it.Flow == ""
++				}),
++		})
++		if err != nil {
++			return nil, err
++		}
++	}
++	if options.Transport != nil {
++		inbound.transport, err = v2ray.NewServerTransport(ctx, logger, common.PtrValueOrDefault(options.Transport), inbound.tlsConfig, (*inboundTransportHandler)(inbound))
++		if err != nil {
++			return nil, E.Cause(err, "create server transport: ", options.Transport.Type)
++		}
++	}
++	inbound.listener = listener.New(listener.Options{
++		Context:           ctx,
++		Logger:            logger,
++		Network:           []string{N.NetworkTCP},
++		Listen:            options.ListenOptions,
++		ConnectionHandler: inbound,
++	})
++	return inbound, nil
++}
++
++func (h *Inbound) Start(stage adapter.StartStage) error {
++	if stage != adapter.StartStateStart {
++		return nil
++	}
++	if h.tlsConfig != nil {
++		err := h.tlsConfig.Start()
++		if err != nil {
++			return err
++		}
++	}
++	if h.transport == nil {
++		return h.listener.Start()
++	}
++	if common.Contains(h.transport.Network(), N.NetworkTCP) {
++		tcpListener, err := h.listener.ListenTCP()
++		if err != nil {
++			return err
++		}
++		go func() {
++			sErr := h.transport.Serve(tcpListener)
++			if sErr != nil && !E.IsClosed(sErr) {
++				h.logger.Error("transport serve error: ", sErr)
++			}
++		}()
++	}
++	if common.Contains(h.transport.Network(), N.NetworkUDP) {
++		udpConn, err := h.listener.ListenUDP()
++		if err != nil {
++			return err
++		}
++		go func() {
++			sErr := h.transport.ServePacket(udpConn)
++			if sErr != nil && !E.IsClosed(sErr) {
++				h.logger.Error("transport serve error: ", sErr)
++			}
++		}()
++	}
++	return nil
++}
++
++func (h *Inbound) Close() error {
++	return common.Close(
++		h.service,
++		h.listener,
++		h.tlsConfig,
++		h.transport,
++	)
++}
++
++func (h *Inbound) NewConnectionEx(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
++	if h.tlsConfig != nil && h.transport == nil {
++		tlsConn, err := tls.ServerHandshake(ctx, conn, h.tlsConfig)
++		if err != nil {
++			N.CloseOnHandshakeFailure(conn, onClose, err)
++			h.logger.ErrorContext(ctx, E.Cause(err, "process connection from ", metadata.Source, ": TLS handshake"))
++			return
++		}
++		conn = tlsConn
++	}
++	err := h.service.NewConnection(adapter.WithContext(ctx, &metadata), conn, metadata.Source, onClose)
++	if err != nil {
++		N.CloseOnHandshakeFailure(conn, onClose, err)
++		h.logger.ErrorContext(ctx, E.Cause(err, "process connection from ", metadata.Source))
++	}
++}
++
++func (h *Inbound) newConnectionEx(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	userIndex, loaded := auth.UserFromContext[int](ctx)
++	if !loaded {
++		N.CloseOnHandshakeFailure(conn, onClose, os.ErrInvalid)
++		return
++	}
++	user := h.users[userIndex].Name
++	if user == "" {
++		user = F.ToString(userIndex)
++	} else {
++		metadata.User = user
++	}
++	h.logger.InfoContext(ctx, "[", user, "] inbound connection to ", metadata.Destination)
++	h.router.RouteConnectionEx(ctx, conn, metadata, onClose)
++}
++
++func (h *Inbound) newPacketConnectionEx(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	userIndex, loaded := auth.UserFromContext[int](ctx)
++	if !loaded {
++		N.CloseOnHandshakeFailure(conn, onClose, os.ErrInvalid)
++		return
++	}
++	user := h.users[userIndex].Name
++	if user == "" {
++		user = F.ToString(userIndex)
++	} else {
++		metadata.User = user
++	}
++	if metadata.Destination.Fqdn == packetaddr.SeqPacketMagicAddress {
++		metadata.Destination = M.Socksaddr{}
++		conn = packetaddr.NewConn(bufio.NewNetPacketConn(conn), metadata.Destination)
++		h.logger.InfoContext(ctx, "[", user, "] inbound packet addr connection")
++	} else {
++		h.logger.InfoContext(ctx, "[", user, "] inbound packet connection to ", metadata.Destination)
++	}
++	h.router.RoutePacketConnectionEx(ctx, conn, metadata, onClose)
++}
++
++var _ adapter.V2RayServerTransportHandler = (*inboundTransportHandler)(nil)
++
++type inboundTransportHandler Inbound
++
++func (h *inboundTransportHandler) NewConnectionEx(ctx context.Context, conn net.Conn, source M.Socksaddr, destination M.Socksaddr, onClose N.CloseHandlerFunc) {
++	var metadata adapter.InboundContext
++	metadata.Source = source
++	metadata.Destination = destination
++	//nolint:staticcheck
++	metadata.InboundDetour = h.listener.ListenOptions().Detour
++	//nolint:staticcheck
++	h.logger.InfoContext(ctx, "inbound connection from ", metadata.Source)
++	(*Inbound)(h).NewConnectionEx(ctx, conn, metadata, onClose)
++}
+diff --git a/core/protocol/vless/users.go b/core/protocol/vless/users.go
+new file mode 100644
+index 0000000..80d9209
+--- /dev/null
++++ b/core/protocol/vless/users.go
+@@ -0,0 +1,18 @@
++package vless
++
++import (
++	"github.com/sagernet/sing-box/option"
++	"github.com/sagernet/sing/common"
++)
++
++func (h *Inbound) UpdateUsers(users []option.VLESSUser) error {
++	h.service.UpdateUsers(common.MapIndexed(users, func(index int, _ option.VLESSUser) int {
++		return index
++	}), common.Map(users, func(it option.VLESSUser) string {
++		return it.UUID
++	}), common.Map(users, func(it option.VLESSUser) string {
++		return it.Flow
++	}))
++	h.users = users
++	return nil
++}
+diff --git a/core/protocol/vmess/inbound.go b/core/protocol/vmess/inbound.go
+new file mode 100644
+index 0000000..3a1630f
+--- /dev/null
++++ b/core/protocol/vmess/inbound.go
+@@ -0,0 +1,228 @@
++package vmess
++
++import (
++	"context"
++	"net"
++	"os"
++
++	"github.com/sagernet/sing-box/adapter"
++	"github.com/sagernet/sing-box/adapter/inbound"
++	"github.com/sagernet/sing-box/common/listener"
++	"github.com/sagernet/sing-box/common/mux"
++	"github.com/sagernet/sing-box/common/tls"
++	"github.com/sagernet/sing-box/common/uot"
++	C "github.com/sagernet/sing-box/constant"
++	"github.com/sagernet/sing-box/log"
++	"github.com/sagernet/sing-box/option"
++	"github.com/sagernet/sing-box/transport/v2ray"
++	vmess "github.com/sagernet/sing-vmess"
++	"github.com/sagernet/sing-vmess/packetaddr"
++	"github.com/sagernet/sing/common"
++	"github.com/sagernet/sing/common/auth"
++	"github.com/sagernet/sing/common/bufio"
++	E "github.com/sagernet/sing/common/exceptions"
++	F "github.com/sagernet/sing/common/format"
++	"github.com/sagernet/sing/common/logger"
++	M "github.com/sagernet/sing/common/metadata"
++	N "github.com/sagernet/sing/common/network"
++	"github.com/sagernet/sing/common/ntp"
++)
++
++func RegisterInbound(registry *inbound.Registry) {
++	inbound.Register[option.VMessInboundOptions](registry, C.TypeVMess, NewInbound)
++}
++
++var _ adapter.TCPInjectableInbound = (*Inbound)(nil)
++
++type Inbound struct {
++	inbound.Adapter
++	ctx       context.Context
++	router    adapter.ConnectionRouterEx
++	logger    logger.ContextLogger
++	listener  *listener.Listener
++	service   *vmess.Service[int]
++	users     []option.VMessUser
++	tlsConfig tls.ServerConfig
++	transport adapter.V2RayServerTransport
++}
++
++func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.VMessInboundOptions) (adapter.Inbound, error) {
++	inbound := &Inbound{
++		Adapter: inbound.NewAdapter(C.TypeVMess, tag),
++		ctx:     ctx,
++		router:  uot.NewRouter(router, logger),
++		logger:  logger,
++		users:   options.Users,
++	}
++	var err error
++	inbound.router, err = mux.NewRouterWithOptions(inbound.router, logger, common.PtrValueOrDefault(options.Multiplex))
++	if err != nil {
++		return nil, err
++	}
++	var serviceOptions []vmess.ServiceOption
++	if timeFunc := ntp.TimeFuncFromContext(ctx); timeFunc != nil {
++		serviceOptions = append(serviceOptions, vmess.ServiceWithTimeFunc(timeFunc))
++	}
++	if options.Transport != nil && options.Transport.Type != "" {
++		serviceOptions = append(serviceOptions, vmess.ServiceWithDisableHeaderProtection())
++	}
++	service := vmess.NewService[int](adapter.NewUpstreamContextHandlerEx(inbound.newConnectionEx, inbound.newPacketConnectionEx), serviceOptions...)
++	inbound.service = service
++	err = service.UpdateUsers(common.MapIndexed(options.Users, func(index int, it option.VMessUser) int {
++		return index
++	}), common.Map(options.Users, func(it option.VMessUser) string {
++		return it.UUID
++	}), common.Map(options.Users, func(it option.VMessUser) int {
++		return it.AlterId
++	}))
++	if err != nil {
++		return nil, err
++	}
++	if options.TLS != nil {
++		inbound.tlsConfig, err = tls.NewServer(ctx, logger, common.PtrValueOrDefault(options.TLS))
++		if err != nil {
++			return nil, err
++		}
++	}
++	if options.Transport != nil {
++		inbound.transport, err = v2ray.NewServerTransport(ctx, logger, common.PtrValueOrDefault(options.Transport), inbound.tlsConfig, (*inboundTransportHandler)(inbound))
++		if err != nil {
++			return nil, E.Cause(err, "create server transport: ", options.Transport.Type)
++		}
++	}
++	inbound.listener = listener.New(listener.Options{
++		Context:           ctx,
++		Logger:            logger,
++		Network:           []string{N.NetworkTCP},
++		Listen:            options.ListenOptions,
++		ConnectionHandler: inbound,
++	})
++	return inbound, nil
++}
++
++func (h *Inbound) Start(stage adapter.StartStage) error {
++	if stage != adapter.StartStateStart {
++		return nil
++	}
++	err := h.service.Start()
++	if err != nil {
++		return err
++	}
++	if h.tlsConfig != nil {
++		err = h.tlsConfig.Start()
++		if err != nil {
++			return err
++		}
++	}
++	if h.transport == nil {
++		return h.listener.Start()
++	}
++	if common.Contains(h.transport.Network(), N.NetworkTCP) {
++		tcpListener, err := h.listener.ListenTCP()
++		if err != nil {
++			return err
++		}
++		go func() {
++			sErr := h.transport.Serve(tcpListener)
++			if sErr != nil && !E.IsClosed(sErr) {
++				h.logger.Error("transport serve error: ", sErr)
++			}
++		}()
++	}
++	if common.Contains(h.transport.Network(), N.NetworkUDP) {
++		udpConn, err := h.listener.ListenUDP()
++		if err != nil {
++			return err
++		}
++		go func() {
++			sErr := h.transport.ServePacket(udpConn)
++			if sErr != nil && !E.IsClosed(sErr) {
++				h.logger.Error("transport serve error: ", sErr)
++			}
++		}()
++	}
++	return nil
++}
++
++func (h *Inbound) Close() error {
++	return common.Close(
++		h.service,
++		h.listener,
++		h.tlsConfig,
++		h.transport,
++	)
++}
++
++func (h *Inbound) NewConnectionEx(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
++	if h.tlsConfig != nil && h.transport == nil {
++		tlsConn, err := tls.ServerHandshake(ctx, conn, h.tlsConfig)
++		if err != nil {
++			N.CloseOnHandshakeFailure(conn, onClose, err)
++			h.logger.ErrorContext(ctx, E.Cause(err, "process connection from ", metadata.Source, ": TLS handshake"))
++			return
++		}
++		conn = tlsConn
++	}
++	err := h.service.NewConnection(adapter.WithContext(ctx, &metadata), conn, metadata.Source, onClose)
++	if err != nil {
++		N.CloseOnHandshakeFailure(conn, onClose, err)
++		h.logger.ErrorContext(ctx, E.Cause(err, "process connection from ", metadata.Source))
++	}
++}
++
++func (h *Inbound) newConnectionEx(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	userIndex, loaded := auth.UserFromContext[int](ctx)
++	if !loaded {
++		N.CloseOnHandshakeFailure(conn, onClose, os.ErrInvalid)
++		return
++	}
++	user := h.users[userIndex].Name
++	if user == "" {
++		user = F.ToString(userIndex)
++	} else {
++		metadata.User = user
++	}
++	h.logger.InfoContext(ctx, "[", user, "] inbound connection to ", metadata.Destination)
++	h.router.RouteConnectionEx(ctx, conn, metadata, onClose)
++}
++
++func (h *Inbound) newPacketConnectionEx(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
++	metadata.Inbound = h.Tag()
++	metadata.InboundType = h.Type()
++	userIndex, loaded := auth.UserFromContext[int](ctx)
++	if !loaded {
++		N.CloseOnHandshakeFailure(conn, onClose, os.ErrInvalid)
++		return
++	}
++	user := h.users[userIndex].Name
++	if user == "" {
++		user = F.ToString(userIndex)
++	} else {
++		metadata.User = user
++	}
++	if metadata.Destination.Fqdn == packetaddr.SeqPacketMagicAddress {
++		metadata.Destination = M.Socksaddr{}
++		conn = packetaddr.NewConn(bufio.NewNetPacketConn(conn), metadata.Destination)
++		h.logger.InfoContext(ctx, "[", user, "] inbound packet addr connection")
++	} else {
++		h.logger.InfoContext(ctx, "[", user, "] inbound packet connection to ", metadata.Destination)
++	}
++	h.router.RoutePacketConnectionEx(ctx, conn, metadata, onClose)
++}
++
++var _ adapter.V2RayServerTransportHandler = (*inboundTransportHandler)(nil)
++
++type inboundTransportHandler Inbound
++
++func (h *inboundTransportHandler) NewConnectionEx(ctx context.Context, conn net.Conn, source M.Socksaddr, destination M.Socksaddr, onClose N.CloseHandlerFunc) {
++	var metadata adapter.InboundContext
++	metadata.Source = source
++	metadata.Destination = destination
++	//nolint:staticcheck
++	metadata.InboundDetour = h.listener.ListenOptions().Detour
++	//nolint:staticcheck
++	h.logger.InfoContext(ctx, "inbound connection from ", metadata.Source)
++	(*Inbound)(h).NewConnectionEx(ctx, conn, metadata, onClose)
++}
+diff --git a/core/protocol/vmess/users.go b/core/protocol/vmess/users.go
+new file mode 100644
+index 0000000..fd04c1d
+--- /dev/null
++++ b/core/protocol/vmess/users.go
+@@ -0,0 +1,21 @@
++package vmess
++
++import (
++	"github.com/sagernet/sing-box/option"
++	"github.com/sagernet/sing/common"
++)
++
++func (h *Inbound) UpdateUsers(users []option.VMessUser) error {
++	err := h.service.UpdateUsers(common.MapIndexed(users, func(index int, _ option.VMessUser) int {
++		return index
++	}), common.Map(users, func(it option.VMessUser) string {
++		return it.UUID
++	}), common.Map(users, func(it option.VMessUser) int {
++		return it.AlterId
++	}))
++	if err != nil {
++		return err
++	}
++	h.users = users
++	return nil
++}
+diff --git a/core/register.go b/core/register.go
+index ff9d4f6..6dd430f 100644
+--- a/core/register.go
++++ b/core/register.go
+@@ -1,6 +1,14 @@
+ package core
+ 
+ import (
++	suiAnytls "github.com/alireza0/s-ui/core/protocol/anytls"
++	suiHysteria "github.com/alireza0/s-ui/core/protocol/hysteria"
++	suiHysteria2 "github.com/alireza0/s-ui/core/protocol/hysteria2"
++	suiTrojan "github.com/alireza0/s-ui/core/protocol/trojan"
++	suiTuic "github.com/alireza0/s-ui/core/protocol/tuic"
++	suiVless "github.com/alireza0/s-ui/core/protocol/vless"
++	suiVmess "github.com/alireza0/s-ui/core/protocol/vmess"
++
+ 	"github.com/sagernet/sing-box/adapter/endpoint"
+ 	"github.com/sagernet/sing-box/adapter/inbound"
+ 	"github.com/sagernet/sing-box/adapter/outbound"
+@@ -54,16 +62,16 @@ func InboundRegistry() *inbound.Registry {
+ 	mixed.RegisterInbound(registry)
+ 
+ 	shadowsocks.RegisterInbound(registry)
+-	vmess.RegisterInbound(registry)
+-	trojan.RegisterInbound(registry)
++	suiVmess.RegisterInbound(registry)
++	suiTrojan.RegisterInbound(registry)
+ 	naive.RegisterInbound(registry)
+ 	shadowtls.RegisterInbound(registry)
+-	vless.RegisterInbound(registry)
+-	anytls.RegisterInbound(registry)
++	suiVless.RegisterInbound(registry)
++	suiAnytls.RegisterInbound(registry)
+ 
+-	hysteria.RegisterInbound(registry)
+-	tuic.RegisterInbound(registry)
+-	hysteria2.RegisterInbound(registry)
++	suiHysteria.RegisterInbound(registry)
++	suiTuic.RegisterInbound(registry)
++	suiHysteria2.RegisterInbound(registry)
+ 
+ 	return registry
+ }
+diff --git a/core/tracker_conn.go b/core/tracker_conn.go
+index 626715f..409fb04 100644
+--- a/core/tracker_conn.go
++++ b/core/tracker_conn.go
+@@ -19,6 +19,7 @@ type ConnectionInfo struct {
+ 	Conn       net.Conn
+ 	PacketConn network.PacketConn
+ 	Inbound    string
++	User       string
+ 	Type       string // "tcp" or "udp"
+ }
+ 
+@@ -57,6 +58,7 @@ func (c *ConnTracker) RoutedConnection(ctx context.Context, conn net.Conn, metad
+ 		ID:      connID,
+ 		Conn:    conn,
+ 		Inbound: metadata.Inbound,
++		User:    metadata.User,
+ 		Type:    "tcp",
+ 	}
+ 
+@@ -71,6 +73,7 @@ func (c *ConnTracker) RoutedPacketConnection(ctx context.Context, conn network.P
+ 		ID:         connID,
+ 		PacketConn: conn,
+ 		Inbound:    metadata.Inbound,
++		User:       metadata.User,
+ 		Type:       "udp",
+ 	}
+ 
+@@ -99,6 +102,30 @@ func (c *ConnTracker) CloseConnByInbound(inbound string) int {
+ 	return closedCount
+ }
+ 
++func (c *ConnTracker) CloseConnByInboundUsers(inbound string, keepUsers map[string]struct{}) int {
++	c.access.Lock()
++	defer c.access.Unlock()
++
++	closedCount := 0
++	for connID, connInfo := range c.connections {
++		if connInfo.Inbound != inbound {
++			continue
++		}
++		if _, keep := keepUsers[connInfo.User]; keep {
++			continue
++		}
++		if connInfo.Conn != nil {
++			connInfo.Conn.Close()
++		}
++		if connInfo.PacketConn != nil {
++			connInfo.PacketConn.Close()
++		}
++		delete(c.connections, connID)
++		closedCount++
++	}
++	return closedCount
++}
++
+ func (c *ConnTracker) trackConnection(connID string, connInfo *ConnectionInfo) {
+ 	c.access.Lock()
+ 	defer c.access.Unlock()
+diff --git a/cronjob/depleteJob.go b/cronjob/depleteJob.go
+index adce0c8..e76e82e 100644
+--- a/cronjob/depleteJob.go
++++ b/cronjob/depleteJob.go
+@@ -22,9 +22,9 @@ func (s *DepleteJob) Run() {
+ 		return
+ 	}
+ 	if len(inboundIds) > 0 {
+-		err := s.InboundService.RestartInbounds(database.GetDB(), inboundIds)
++		err := s.InboundService.UpdateInboundsUsers(database.GetDB(), inboundIds)
+ 		if err != nil {
+-			logger.Error("unable to restart inbounds: ", err)
++			logger.Error("unable to update inbound users: ", err)
+ 		}
+ 	}
+ }
+diff --git a/database/db.go b/database/db.go
+index 1af09ed..e32b61c 100644
+--- a/database/db.go
++++ b/database/db.go
+@@ -58,7 +58,11 @@ func OpenDB(dbPath string) error {
+ 	// _cache_size=-200 caps each connection's page cache at ~200 KiB
+ 	// (default is ~2 MiB), reducing memory amplification if a connection
+ 	// escapes the pool.
+-	dsn := dbPath + sep + "_busy_timeout=10000&_journal_mode=WAL&_cache_size=-200"
++	// _txlock=immediate makes transactions take the write lock up front.
++	// Deferred transactions that read first and then write (e.g. the deplete
++	// job) cannot wait on the lock upgrade and fail instantly with "database
++	// is locked" whenever another writer (stats job) is active (#1209).
++	dsn := dbPath + sep + "_busy_timeout=10000&_journal_mode=WAL&_cache_size=-200&_txlock=immediate"
+ 	db, err = gorm.Open(sqlite.Open(dsn), c)
+ 	if err != nil {
+ 		return err
+@@ -106,6 +110,7 @@ func InitDB(dbPath string) error {
+ 		&model.Stats{},
+ 		&model.Client{},
+ 		&model.Changes{},
++		&model.Server{},
+ 	)
+ 	if err != nil {
+ 		return err
+diff --git a/database/model/outbounds.go b/database/model/outbounds.go
+index 9aec2ae..733c1be 100644
+--- a/database/model/outbounds.go
++++ b/database/model/outbounds.go
+@@ -49,5 +49,14 @@ func (o Outbound) MarshalJSON() ([]byte, error) {
+ 		}
+ 	}
+ 
++	if tlsRaw, ok := combined["tls"].(json.RawMessage); ok {
++		var tlsObj map[string]interface{}
++		if json.Unmarshal(tlsRaw, &tlsObj) == nil {
++			if enabled, _ := tlsObj["enabled"].(bool); !enabled {
++				delete(combined, "tls")
++			}
++		}
++	}
++
+ 	return json.Marshal(combined)
+ }
+diff --git a/database/model/server.go b/database/model/server.go
+new file mode 100644
+index 0000000..3c3049c
+--- /dev/null
++++ b/database/model/server.go
+@@ -0,0 +1,12 @@
++package model
++
++// Server is a saved panel address — a "launcher" entry for another panel
++// (this fork, 3x-ui, anything). Clicking it just opens the URL in a new tab.
++type Server struct {
++	Id   uint   `json:"id" form:"id" gorm:"primaryKey;autoIncrement"`
++	Name string `json:"name" form:"name"`
++	Url  string `json:"url" form:"url"`
++	// Token is the remote s-ui APIv2 token used for central management.
++	Token  string `json:"token" form:"token"`
++	Remark string `json:"remark" form:"remark"`
++}
+diff --git a/frontend b/frontend
+index a4b8816..31049d1 160000
+--- a/frontend
++++ b/frontend
+@@ -1 +1 @@
+-Subproject commit a4b88165023003acd8f25c90d4cb395b7f996b50
++Subproject commit 31049d1c437b13d6a3b29b2c7243121107301b66
+diff --git a/go.mod b/go.mod
+index 8e1ad2a..de9b924 100644
+--- a/go.mod
++++ b/go.mod
+@@ -1,35 +1,39 @@
+ module github.com/alireza0/s-ui
+ 
+-go 1.26.3
++go 1.26.5
+ 
+ require (
++	github.com/anytls/sing-anytls v0.0.13
+ 	github.com/gin-contrib/gzip v1.2.6
+ 	github.com/gin-contrib/sessions v1.1.0
+ 	github.com/gin-gonic/gin v1.12.0
+-	github.com/gofrs/uuid/v5 v5.4.0
++	github.com/gofrs/uuid/v5 v5.5.1
+ 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
++	github.com/refraction-networking/utls v1.8.2
+ 	github.com/robfig/cron/v3 v3.0.1
+-	github.com/sagernet/sing v0.8.10
+-	github.com/sagernet/sing-box v1.13.12
+-	github.com/shirou/gopsutil/v4 v4.26.4
++	github.com/sagernet/sing v0.8.12
++	github.com/sagernet/sing-box v1.13.18
++	github.com/sagernet/sing-quic v0.6.4-0.20260803041914-d83826c306d7
++	github.com/sagernet/sing-vmess v0.2.8-0.20250909125414-3aed155119a1
++	github.com/shirou/gopsutil/v4 v4.26.7
++	golang.org/x/crypto v0.54.0
+ 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
+ 	gopkg.in/yaml.v3 v3.0.1
+ 	gorm.io/driver/sqlite v1.6.0
+-	gorm.io/gorm v1.31.1
++	gorm.io/gorm v1.31.2
+ )
+ 
+ require (
+-	filippo.io/edwards25519 v1.2.0 // indirect
++	filippo.io/edwards25519 v1.1.1 // indirect
+ 	github.com/ajg/form v1.5.1 // indirect
+ 	github.com/akutz/memconn v0.1.0 // indirect
+ 	github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa // indirect
+ 	github.com/andybalholm/brotli v1.1.0 // indirect
+ 	github.com/anthropics/anthropic-sdk-go v1.26.0 // indirect
+-	github.com/anytls/sing-anytls v0.0.11 // indirect
+ 	github.com/bytedance/gopkg v0.1.3 // indirect
+ 	github.com/bytedance/sonic v1.15.0 // indirect
+ 	github.com/bytedance/sonic/loader v0.5.0 // indirect
+-	github.com/caddyserver/certmagic v0.25.2 // indirect
++	github.com/caddyserver/certmagic v0.25.3-0.20260421143802-60d9d8b415d6 // indirect
+ 	github.com/caddyserver/zerossl v0.1.5 // indirect
+ 	github.com/cloudwego/base64x v0.1.6 // indirect
+ 	github.com/coder/websocket v1.8.14 // indirect
+@@ -38,7 +42,7 @@ require (
+ 	github.com/database64128/netx-go v0.1.1 // indirect
+ 	github.com/database64128/tfo-go/v2 v2.3.2 // indirect
+ 	github.com/dblohm7/wingoes v0.0.0-20240119213807-a09d6be7affa // indirect
+-	github.com/ebitengine/purego v0.10.0 // indirect
++	github.com/ebitengine/purego v0.10.2 // indirect
+ 	github.com/florianl/go-nfqueue/v2 v2.0.2 // indirect
+ 	github.com/fsnotify/fsnotify v1.9.0 // indirect
+ 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
+@@ -81,9 +85,9 @@ require (
+ 	github.com/libdns/cloudflare v0.2.2 // indirect
+ 	github.com/libdns/libdns v1.1.1 // indirect
+ 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
+-	github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 // indirect
++	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
+ 	github.com/mattn/go-isatty v0.0.20 // indirect
+-	github.com/mattn/go-sqlite3 v1.14.30 // indirect
++	github.com/mattn/go-sqlite3 v1.14.22 // indirect
+ 	github.com/mdlayher/netlink v1.9.0 // indirect
+ 	github.com/mdlayher/socket v0.5.1 // indirect
+ 	github.com/metacubex/utls v1.8.4 // indirect
+@@ -99,56 +103,54 @@ require (
+ 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
+ 	github.com/prometheus-community/pro-bing v0.4.0 // indirect
+ 	github.com/quic-go/qpack v0.6.0 // indirect
+-	github.com/quic-go/quic-go v0.59.0 // indirect
++	github.com/quic-go/quic-go v0.59.1 // indirect
+ 	github.com/safchain/ethtool v0.3.0 // indirect
+ 	github.com/sagernet/bbolt v0.0.0-20231014093535-ea5cb2fe9f0a // indirect
+ 	github.com/sagernet/cors v1.2.1 // indirect
+-	github.com/sagernet/cronet-go v0.0.0-20260513071958-2faf34666c2c // indirect
+-	github.com/sagernet/cronet-go/all v0.0.0-20260513071958-2faf34666c2c // indirect
+-	github.com/sagernet/cronet-go/lib/android_386 v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/android_amd64 v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/android_arm v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/android_arm64 v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/darwin_amd64 v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/darwin_arm64 v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/ios_amd64_simulator v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/ios_arm64 v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/ios_arm64_simulator v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_386 v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_386_musl v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_amd64 v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_amd64_musl v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_arm v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_arm64 v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_arm64_musl v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_arm_musl v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_loong64 v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_loong64_musl v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_mips64le v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_mipsle v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_mipsle_musl v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_riscv64 v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/linux_riscv64_musl v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/tvos_amd64_simulator v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/tvos_arm64 v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/tvos_arm64_simulator v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/windows_amd64 v0.0.0-20260513071149-ade33496efb8 // indirect
+-	github.com/sagernet/cronet-go/lib/windows_arm64 v0.0.0-20260513071149-ade33496efb8 // indirect
++	github.com/sagernet/cronet-go v0.0.0-20260807162344-ec9a39c5ba3b // indirect
++	github.com/sagernet/cronet-go/all v0.0.0-20260807162344-ec9a39c5ba3b // indirect
++	github.com/sagernet/cronet-go/lib/android_386 v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/android_amd64 v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/android_arm v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/android_arm64 v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/darwin_amd64 v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/darwin_arm64 v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/ios_amd64_simulator v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/ios_arm64 v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/ios_arm64_simulator v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_386 v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_386_musl v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_amd64 v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_amd64_musl v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_arm v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_arm64 v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_arm64_musl v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_arm_musl v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_loong64 v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_loong64_musl v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_mips64le v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_mipsle v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_mipsle_musl v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_riscv64 v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/linux_riscv64_musl v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/tvos_amd64_simulator v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/tvos_arm64 v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/tvos_arm64_simulator v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/windows_amd64 v0.0.0-20260807161529-8d42107dcdfc // indirect
++	github.com/sagernet/cronet-go/lib/windows_arm64 v0.0.0-20260807161529-8d42107dcdfc // indirect
+ 	github.com/sagernet/fswatch v0.1.2 // indirect
+ 	github.com/sagernet/gvisor v0.0.0-20250811.0-sing-box-mod.1 // indirect
+ 	github.com/sagernet/netlink v0.0.0-20240612041022-b9a21c07ac6a // indirect
+ 	github.com/sagernet/nftables v0.3.0-mod.2 // indirect
+ 	github.com/sagernet/quic-go v0.59.0-sing-box-mod.4 // indirect
+-	github.com/sagernet/sing-mux v0.3.4 // indirect
+-	github.com/sagernet/sing-quic v0.6.1 // indirect
++	github.com/sagernet/sing-mux v0.3.5 // indirect
+ 	github.com/sagernet/sing-shadowsocks v0.2.8 // indirect
+ 	github.com/sagernet/sing-shadowsocks2 v0.2.1 // indirect
+-	github.com/sagernet/sing-shadowtls v0.2.1-0.20250503051639-fcd445d33c11 // indirect
+-	github.com/sagernet/sing-tun v0.8.9 // indirect
+-	github.com/sagernet/sing-vmess v0.2.8-0.20250909125414-3aed155119a1 // indirect
++	github.com/sagernet/sing-shadowtls v0.2.1 // indirect
++	github.com/sagernet/sing-tun v0.8.12-0.20260727151122-3a09076491df // indirect
+ 	github.com/sagernet/smux v1.5.50-sing-box-mod.1 // indirect
+-	github.com/sagernet/tailscale v1.92.4-sing-box-1.13-mod.7 // indirect
+-	github.com/sagernet/wireguard-go v0.0.2-beta.1.0.20260224074747-506b7631853c // indirect
++	github.com/sagernet/tailscale v1.92.4-sing-box-1.13-mod.9 // indirect
++	github.com/sagernet/wireguard-go v0.0.4 // indirect
+ 	github.com/sagernet/ws v0.0.0-20231204124109-acfe8907c854 // indirect
+ 	github.com/tailscale/certstore v0.1.1-0.20231202035212-d3fa0460f47e // indirect
+ 	github.com/tailscale/go-winio v0.0.0-20231025203758-c4f33415bf55 // indirect
+@@ -177,23 +179,20 @@ require (
+ 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
+ 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
+ 	golang.org/x/arch v0.22.0 // indirect
+-	golang.org/x/crypto v0.48.0 // indirect
+ 	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93 // indirect
+-	golang.org/x/mod v0.33.0 // indirect
+-	golang.org/x/net v0.51.0 // indirect
+-	golang.org/x/oauth2 v0.34.0 // indirect
+-	golang.org/x/sync v0.20.0 // indirect
+-	golang.org/x/sys v0.41.0 // indirect
+-	golang.org/x/term v0.40.0 // indirect
+-	golang.org/x/text v0.35.0 // indirect
+-	golang.org/x/time v0.12.0 // indirect
+-	golang.org/x/tools v0.42.0 // indirect
++	golang.org/x/mod v0.37.0 // indirect
++	golang.org/x/net v0.56.0 // indirect
++	golang.org/x/oauth2 v0.36.0 // indirect
++	golang.org/x/sync v0.22.0 // indirect
++	golang.org/x/sys v0.47.0 // indirect
++	golang.org/x/term v0.45.0 // indirect
++	golang.org/x/text v0.40.0 // indirect
++	golang.org/x/time v0.11.0 // indirect
++	golang.org/x/tools v0.47.0 // indirect
+ 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
+ 	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
+-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
+-	google.golang.org/grpc v1.79.3 // indirect
++	google.golang.org/genproto/googleapis/rpc v0.0.0-20260807164820-c8921c73eeea // indirect
++	google.golang.org/grpc v1.83.0 // indirect
+ 	google.golang.org/protobuf v1.36.11 // indirect
+-	lukechampine.com/blake3 v1.4.1 // indirect
++	lukechampine.com/blake3 v1.3.0 // indirect
+ )
+-
+-replace github.com/quic-go/quic-go => github.com/quic-go/quic-go v0.57.1
+diff --git a/go.sum b/go.sum
+index 63e9c7c..26829b0 100644
+--- a/go.sum
++++ b/go.sum
+@@ -1,7 +1,7 @@
+ code.pfad.fr/check v1.1.0 h1:GWvjdzhSEgHvEHe2uJujDcpmZoySKuHQNrZMfzfO0bE=
+ code.pfad.fr/check v1.1.0/go.mod h1:NiUH13DtYsb7xp5wll0U4SXx7KhXQVCtRgdC96IPfoM=
+-filippo.io/edwards25519 v1.2.0 h1:crnVqOiS4jqYleHd9vaKZ+HKtHfllngJIiOpNpoJsjo=
+-filippo.io/edwards25519 v1.2.0/go.mod h1:xzAOLCNug/yB62zG1bQ8uziwrIqIuxhctzJT18Q77mc=
++filippo.io/edwards25519 v1.1.1 h1:YpjwWWlNmGIDyXOn8zLzqiD+9TyIlPhGFG96P39uBpw=
++filippo.io/edwards25519 v1.1.1/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
+ github.com/ajg/form v1.5.1 h1:t9c7v8JUKu/XxOGBU0yjNpaMloxGEJhUkqFRq0ibGeU=
+ github.com/ajg/form v1.5.1/go.mod h1:uL1WgH+h2mgNtvBq0339dVnzXdBETtL2LeUXaIv25UY=
+ github.com/akutz/memconn v0.1.0 h1:NawI0TORU4hcOMsMr11g7vwlCdkYeLKXBcxWu2W/P8A=
+@@ -12,16 +12,16 @@ github.com/andybalholm/brotli v1.1.0 h1:eLKJA0d02Lf0mVpIDgYnqXcUn0GqVmEFny3VuID1
+ github.com/andybalholm/brotli v1.1.0/go.mod h1:sms7XGricyQI9K10gOSf56VKKWS4oLer58Q+mhRPtnY=
+ github.com/anthropics/anthropic-sdk-go v1.26.0 h1:oUTzFaUpAevfuELAP1sjL6CQJ9HHAfT7CoSYSac11PY=
+ github.com/anthropics/anthropic-sdk-go v1.26.0/go.mod h1:qUKmaW+uuPB64iy1l+4kOSvaLqPXnHTTBKH6RVZ7q5Q=
+-github.com/anytls/sing-anytls v0.0.11 h1:w8e9Uj1oP3m4zxkyZDewPk0EcQbvVxb7Nn+rapEx4fc=
+-github.com/anytls/sing-anytls v0.0.11/go.mod h1:7rjN6IukwysmdusYsrV51Fgu1uW6vsrdd6ctjnEAln8=
++github.com/anytls/sing-anytls v0.0.13 h1:FL+krjOmwpYYLpl5rrV/BrzDMfxbi05YgIQh+NAA37c=
++github.com/anytls/sing-anytls v0.0.13/go.mod h1:7rjN6IukwysmdusYsrV51Fgu1uW6vsrdd6ctjnEAln8=
+ github.com/bytedance/gopkg v0.1.3 h1:TPBSwH8RsouGCBcMBktLt1AymVo2TVsBVCY4b6TnZ/M=
+ github.com/bytedance/gopkg v0.1.3/go.mod h1:576VvJ+eJgyCzdjS+c4+77QF3p7ubbtiKARP3TxducM=
+ github.com/bytedance/sonic v1.15.0 h1:/PXeWFaR5ElNcVE84U0dOHjiMHQOwNIx3K4ymzh/uSE=
+ github.com/bytedance/sonic v1.15.0/go.mod h1:tFkWrPz0/CUCLEF4ri4UkHekCIcdnkqXw9VduqpJh0k=
+ github.com/bytedance/sonic/loader v0.5.0 h1:gXH3KVnatgY7loH5/TkeVyXPfESoqSBSBEiDd5VjlgE=
+ github.com/bytedance/sonic/loader v0.5.0/go.mod h1:AR4NYCk5DdzZizZ5djGqQ92eEhCCcdf5x77udYiSJRo=
+-github.com/caddyserver/certmagic v0.25.2 h1:D7xcS7ggX/WEY54x0czj7ioTkmDWKIgxtIi2OcQclUc=
+-github.com/caddyserver/certmagic v0.25.2/go.mod h1:llW/CvsNmza8S6hmsuggsZeiX+uS27dkqY27wDIuBWg=
++github.com/caddyserver/certmagic v0.25.3-0.20260421143802-60d9d8b415d6 h1:LYSB6VgWzKtNrcxElw3c97BP40Oc7bizKxA9K1Vi/5k=
++github.com/caddyserver/certmagic v0.25.3-0.20260421143802-60d9d8b415d6/go.mod h1:llW/CvsNmza8S6hmsuggsZeiX+uS27dkqY27wDIuBWg=
+ github.com/caddyserver/zerossl v0.1.5 h1:dkvOjBAEEtY6LIGAHei7sw2UgqSD6TrWweXpV7lvEvE=
+ github.com/caddyserver/zerossl v0.1.5/go.mod h1:CxA0acn7oEGO6//4rtrRjYgEoa4MFw/XofZnrYwGqG4=
+ github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
+@@ -48,8 +48,8 @@ github.com/dblohm7/wingoes v0.0.0-20240119213807-a09d6be7affa h1:h8TfIT1xc8FWbww
+ github.com/dblohm7/wingoes v0.0.0-20240119213807-a09d6be7affa/go.mod h1:Nx87SkVqTKd8UtT+xu7sM/l+LgXs6c0aHrlKusR+2EQ=
+ github.com/dnaeon/go-vcr v1.2.0 h1:zHCHvJYTMh1N7xnV7zf1m1GPBF9Ad0Jk/whtQ1663qI=
+ github.com/dnaeon/go-vcr v1.2.0/go.mod h1:R4UdLID7HZT3taECzJs4YgbbH6PIGXB6W/sc5OLb6RQ=
+-github.com/ebitengine/purego v0.10.0 h1:QIw4xfpWT6GWTzaW5XEKy3HXoqrJGx1ijYHzTF0/ISU=
+-github.com/ebitengine/purego v0.10.0/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
++github.com/ebitengine/purego v0.10.2 h1:W809HbnvzAxgdm+aOvlSekrM16wGCdT/e76+9tS7gzE=
++github.com/ebitengine/purego v0.10.2/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
+ github.com/florianl/go-nfqueue/v2 v2.0.2 h1:FL5lQTeetgpCvac1TRwSfgaXUn0YSO7WzGvWNIp3JPE=
+ github.com/florianl/go-nfqueue/v2 v2.0.2/go.mod h1:VA09+iPOT43OMoCKNfXHyzujQUty2xmzyCRkBOlmabc=
+ github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
+@@ -74,8 +74,8 @@ github.com/go-chi/chi/v5 v5.2.5 h1:Eg4myHZBjyvJmAFjFvWgrqDTXFyOzjj7YIm3L3mu6Ug=
+ github.com/go-chi/chi/v5 v5.2.5/go.mod h1:X7Gx4mteadT3eDOMTsXzmI4/rwUpOwBHLpAfupzFJP0=
+ github.com/go-chi/render v1.0.3 h1:AsXqd2a1/INaIfUSKq3G5uA8weYx20FOsM7uSoCyyt4=
+ github.com/go-chi/render v1.0.3/go.mod h1:/gr3hVkmYR0YlEy3LxCuVRFzEu9Ruok+gFqbIofjao0=
+-github.com/go-jose/go-jose/v4 v4.1.3 h1:CVLmWDhDVRa6Mi/IgCgaopNosCaHz7zrMeF9MlZRkrs=
+-github.com/go-jose/go-jose/v4 v4.1.3/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
++github.com/go-jose/go-jose/v4 v4.1.4 h1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz3kA=
++github.com/go-jose/go-jose/v4 v4.1.4/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
+ github.com/go-json-experiment/json v0.0.0-20250813024750-ebf49471dced h1:Q311OHjMh/u5E2TITc++WlTP5We0xNseRMkHDyvhW7I=
+ github.com/go-json-experiment/json v0.0.0-20250813024750-ebf49471dced/go.mod h1:TiCD2a1pcmjd7YnhGH0f/zKNcCD06B029pHhzV23c2M=
+ github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=
+@@ -103,14 +103,15 @@ github.com/goccy/go-yaml v1.19.2 h1:PmFC1S6h8ljIz6gMRBopkjP1TVT7xuwrButHID66PoM=
+ github.com/goccy/go-yaml v1.19.2/go.mod h1:XBurs7gK8ATbW4ZPGKgcbrY1Br56PdM69F7LkFRi1kA=
+ github.com/godbus/dbus/v5 v5.2.2 h1:TUR3TgtSVDmjiXOgAAyaZbYmIeP3DPkld3jgKGV8mXQ=
+ github.com/godbus/dbus/v5 v5.2.2/go.mod h1:3AAv2+hPq5rdnr5txxxRwiGjPXamgoIHgz9FPBfOp3c=
+-github.com/gofrs/uuid/v5 v5.4.0 h1:EfbpCTjqMuGyq5ZJwxqzn3Cbr2d0rUZU7v5ycAk/e/0=
+-github.com/gofrs/uuid/v5 v5.4.0/go.mod h1:CDOjlDMVAtN56jqyRUZh58JT31Tiw7/oQyEXZV+9bD8=
++github.com/gofrs/uuid/v5 v5.5.1 h1:z1Ce19/JwNidXpy3tOQc3241lnJLKdKyq/xlNvlD4Ng=
++github.com/gofrs/uuid/v5 v5.5.1/go.mod h1:bbAA98EoIlxyRHIVg6ektCSsZ5n8mSbwgEhvhMYlZgg=
+ github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da h1:oI5xCqsCo564l8iNU+DwB5epxmsaqB+rhGL0m5jtYqE=
+ github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
+ github.com/golang/protobuf v1.5.4 h1:i7eJL8qZTpSEXOPTxNKhASYpMn+8e5Q6AdndVa1dWek=
+ github.com/golang/protobuf v1.5.4/go.mod h1:lnTiLA8Wa4RWRcIUkrtSVa5nRhsEGBg48fD6rSs7xps=
+ github.com/google/btree v1.1.3 h1:CVpQJjYgC4VbzxeGVHfvZrv1ctoYCAI8vbl07Fcxlyg=
+ github.com/google/btree v1.1.3/go.mod h1:qOPhT0dTNdNzV6Z/lhRX0YXUafgPLFUh+gZMl761Gm4=
++github.com/google/go-cmp v0.5.6/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
+ github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
+ github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
+ github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
+@@ -166,12 +167,12 @@ github.com/libdns/libdns v1.1.1 h1:wPrHrXILoSHKWJKGd0EiAVmiJbFShguILTg9leS/P/U=
+ github.com/libdns/libdns v1.1.1/go.mod h1:4Bj9+5CQiNMVGf87wjX4CY3HQJypUHRuLvlsfsZqLWQ=
+ github.com/logrusorgru/aurora v2.0.3+incompatible h1:tOpm7WcpBTn4fjmVfgpQq0EfczGlG91VSDkswnjF5A8=
+ github.com/logrusorgru/aurora v2.0.3+incompatible/go.mod h1:7rIyQOR62GCctdiQpZ/zOJlFyk6y+94wXzv6RNZgaR4=
+-github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 h1:PpXWgLPs+Fqr325bN2FD2ISlRRztXibcX6e8f5FR5Dc=
+-github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35/go.mod h1:autxFIvghDt3jPTLoqZ9OZ7s9qTGNAWmYCjVFWPX/zg=
++github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 h1:6E+4a0GO5zZEnZ81pIr0yLvtUWk2if982qA3F3QD6H4=
++github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0/go.mod h1:zJYVVT2jmtg6P3p1VtQj7WsuWi/y4VnjVBn7F8KPB3I=
+ github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
+ github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
+-github.com/mattn/go-sqlite3 v1.14.30 h1:bVreufq3EAIG1Quvws73du3/QgdeZ3myglJlrzSYYCY=
+-github.com/mattn/go-sqlite3 v1.14.30/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
++github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o4kU=
++github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
+ github.com/mdlayher/netlink v1.9.0 h1:G8+GLq2x3v4D4MVIqDdNUhTUC7TKiCy/6MDkmItfKco=
+ github.com/mdlayher/netlink v1.9.0/go.mod h1:YBnl5BXsCoRuwBjKKlZ+aYmEoq0r12FDA/3JC+94KDg=
+ github.com/mdlayher/socket v0.5.1 h1:VZaqt6RkGkt2OE9l3GcC6nZkqD3xKeQLyfleW/uBcos=
+@@ -210,8 +211,10 @@ github.com/prometheus-community/pro-bing v0.4.0 h1:YMbv+i08gQz97OZZBwLyvmmQEEzyf
+ github.com/prometheus-community/pro-bing v0.4.0/go.mod h1:b7wRYZtCcPmt4Sz319BykUU241rWLe1VFXyiyWK/dH4=
+ github.com/quic-go/qpack v0.6.0 h1:g7W+BMYynC1LbYLSqRt8PBg5Tgwxn214ZZR34VIOjz8=
+ github.com/quic-go/qpack v0.6.0/go.mod h1:lUpLKChi8njB4ty2bFLX2x4gzDqXwUpaO1DP9qMDZII=
+-github.com/quic-go/quic-go v0.57.1 h1:25KAAR9QR8KZrCZRThWMKVAwGoiHIrNbT72ULHTuI10=
+-github.com/quic-go/quic-go v0.57.1/go.mod h1:ly4QBAjHA2VhdnxhojRsCUOeJwKYg+taDlos92xb1+s=
++github.com/quic-go/quic-go v0.59.1 h1:0Gmua0HW1Tv7ANR7hUYwRyD0MG5OJfgvYSZasGZzBic=
++github.com/quic-go/quic-go v0.59.1/go.mod h1:upnsH4Ju1YkqpLXC305eW3yDZ4NfnNbmQRCMWS58IKU=
++github.com/refraction-networking/utls v1.8.2 h1:j4Q1gJj0xngdeH+Ox/qND11aEfhpgoEvV+S9iJ2IdQo=
++github.com/refraction-networking/utls v1.8.2/go.mod h1:jkSOEkLqn+S/jtpEHPOsVv/4V4EVnelwbMQl4vCWXAM=
+ github.com/robfig/cron/v3 v3.0.1 h1:WdRxkvbJztn8LMz/QEvLN5sBU+xKpSqwwUO1Pjr4qDs=
+ github.com/robfig/cron/v3 v3.0.1/go.mod h1:eQICP3HwyT7UooqI/z+Ov+PtYAWygg1TEWWzGIFLtro=
+ github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR38lUII=
+@@ -222,68 +225,68 @@ github.com/sagernet/bbolt v0.0.0-20231014093535-ea5cb2fe9f0a h1:+NkI2670SQpQWvkk
+ github.com/sagernet/bbolt v0.0.0-20231014093535-ea5cb2fe9f0a/go.mod h1:63s7jpZqcDAIpj8oI/1v4Izok+npJOHACFCU6+huCkM=
+ github.com/sagernet/cors v1.2.1 h1:Cv5Z8y9YSD6Gm+qSpNrL3LO4lD3eQVvbFYJSG7JCMHQ=
+ github.com/sagernet/cors v1.2.1/go.mod h1:O64VyOjjhrkLmQIjF4KGRrJO/5dVXFdpEmCW/eISRAI=
+-github.com/sagernet/cronet-go v0.0.0-20260513071958-2faf34666c2c h1:JatMWK/reVa5Y+x3D3l49SVtHB/EQUEtQnAFTxPBNxY=
+-github.com/sagernet/cronet-go v0.0.0-20260513071958-2faf34666c2c/go.mod h1:T/mwtrpC4JlWfScw73CmSBvHzIvc7BatQ1MhRr+cYNw=
+-github.com/sagernet/cronet-go/all v0.0.0-20260513071958-2faf34666c2c h1:F/tL+VzLZ2F4SNZZze6SRSRL/jcX7LwIsuL1+hECiz0=
+-github.com/sagernet/cronet-go/all v0.0.0-20260513071958-2faf34666c2c/go.mod h1:GGE1tBbFgHq8kV99AKX1JXFY+9FvgNSK/W6Z5j24Ihc=
+-github.com/sagernet/cronet-go/lib/android_386 v0.0.0-20260513071149-ade33496efb8 h1:NCKxyAnEkwsEueAEbuuUUjs2FEZAIflr+WN3Mwbvsdg=
+-github.com/sagernet/cronet-go/lib/android_386 v0.0.0-20260513071149-ade33496efb8/go.mod h1:XXDwdjX/T8xftoeJxQmbBoYXZp8MAPFR2CwbFuTpEtw=
+-github.com/sagernet/cronet-go/lib/android_amd64 v0.0.0-20260513071149-ade33496efb8 h1:o3AGm7/L/zAdBvPu0u1dFgDR/tH086qyuXZkjLNJ7/E=
+-github.com/sagernet/cronet-go/lib/android_amd64 v0.0.0-20260513071149-ade33496efb8/go.mod h1:iNiUGoLtnr8/JTuVNj7XJbmpOAp2C6+B81KDrPxwaZM=
+-github.com/sagernet/cronet-go/lib/android_arm v0.0.0-20260513071149-ade33496efb8 h1:AeO8yHQj7aNj16fiJNU797alyuM3T+3VASnETHeV220=
+-github.com/sagernet/cronet-go/lib/android_arm v0.0.0-20260513071149-ade33496efb8/go.mod h1:19ILNUOGIzRdOqa2mq+iY0JoHxuieB7/lnjYeaA2vEc=
+-github.com/sagernet/cronet-go/lib/android_arm64 v0.0.0-20260513071149-ade33496efb8 h1:ZgW2/Qq/5Q6eTlW80QXLokU56kfjvbLJSEGYTkcG3hU=
+-github.com/sagernet/cronet-go/lib/android_arm64 v0.0.0-20260513071149-ade33496efb8/go.mod h1:JxzGyQf94Cr6sBShKqODGDyRUlESfJK/Njcz9Lz6qMQ=
+-github.com/sagernet/cronet-go/lib/darwin_amd64 v0.0.0-20260513071149-ade33496efb8 h1:orYgvX5X9aUa+sRrAuuqA6PXiiBUI2D367ZJqan4lIU=
+-github.com/sagernet/cronet-go/lib/darwin_amd64 v0.0.0-20260513071149-ade33496efb8/go.mod h1:KN+9T9TBycGOLzmKU4QdcHAJEj6Nlx48ifnlTvvHMvs=
+-github.com/sagernet/cronet-go/lib/darwin_arm64 v0.0.0-20260513071149-ade33496efb8 h1:2w1s3wEk7qW2w4IGwlJflxwXBM97UChNiqAErKpvHr0=
+-github.com/sagernet/cronet-go/lib/darwin_arm64 v0.0.0-20260513071149-ade33496efb8/go.mod h1:kojvtUc29KKnk8hs2QIANynVR59921SnGWA9kXohHc0=
+-github.com/sagernet/cronet-go/lib/ios_amd64_simulator v0.0.0-20260513071149-ade33496efb8 h1:22k6CB3d4gHT+SARUh2bgNyGU4QwYupcCdP8cGuwygY=
+-github.com/sagernet/cronet-go/lib/ios_amd64_simulator v0.0.0-20260513071149-ade33496efb8/go.mod h1:hkQzRE5GDbaH1/ioqYh0Taho4L6i0yLRCVEZ5xHz5M0=
+-github.com/sagernet/cronet-go/lib/ios_arm64 v0.0.0-20260513071149-ade33496efb8 h1:PkJ5EaqLrv6bNR+MHx1/joJXoRcoYcV7JA4NtXbFQsc=
+-github.com/sagernet/cronet-go/lib/ios_arm64 v0.0.0-20260513071149-ade33496efb8/go.mod h1:tzVJFTOm66UxLxy6K0ZN5Ic2PC79e+sKKnt+V9puEa4=
+-github.com/sagernet/cronet-go/lib/ios_arm64_simulator v0.0.0-20260513071149-ade33496efb8 h1:V629H+OQ9yOR2d0Jkq5y42j5btpvoSWJbUaBH7FCGPI=
+-github.com/sagernet/cronet-go/lib/ios_arm64_simulator v0.0.0-20260513071149-ade33496efb8/go.mod h1:M/pN6m3j0HFU6/y83n0HU6GLYys3tYdr/xTE8hVEGMo=
+-github.com/sagernet/cronet-go/lib/linux_386 v0.0.0-20260513071149-ade33496efb8 h1:gfObF5uoqJslCdMRRm2Yo+gmPJQPVlrci5Myrki0Kzk=
+-github.com/sagernet/cronet-go/lib/linux_386 v0.0.0-20260513071149-ade33496efb8/go.mod h1:cGh5hO6eljCo6KMQ/Cel8Xgq4+etL0awZLRBDVG1EZQ=
+-github.com/sagernet/cronet-go/lib/linux_386_musl v0.0.0-20260513071149-ade33496efb8 h1:JRPN0RBKvoOBEHezJh/54KD9ftWL7YadtcCgOf/vRnw=
+-github.com/sagernet/cronet-go/lib/linux_386_musl v0.0.0-20260513071149-ade33496efb8/go.mod h1:JFE0/cxaKkx0wqPMZU7MgaplQlU0zudv82dROJjClKU=
+-github.com/sagernet/cronet-go/lib/linux_amd64 v0.0.0-20260513071149-ade33496efb8 h1:mM8gNdFlXSpjZFs9kgaMgW94oTRF8YdEEQgdOp/OEUA=
+-github.com/sagernet/cronet-go/lib/linux_amd64 v0.0.0-20260513071149-ade33496efb8/go.mod h1:vU8VftFeSt7fURCa3JXD6+k6ss1YAX+idQjPvHmJ2tI=
+-github.com/sagernet/cronet-go/lib/linux_amd64_musl v0.0.0-20260513071149-ade33496efb8 h1:ZtCH0fH07giTK6wqkenA9fdFYt7krjWiyOvC8z9nPwk=
+-github.com/sagernet/cronet-go/lib/linux_amd64_musl v0.0.0-20260513071149-ade33496efb8/go.mod h1:vCe4OUuL+XOUge9v3MyTD45BnuAXiH+DkjN9quDXJzQ=
+-github.com/sagernet/cronet-go/lib/linux_arm v0.0.0-20260513071149-ade33496efb8 h1:Uviqmw+Q4No9kCxJWJ5CYcq6PNHB9f0jQhd15j39+no=
+-github.com/sagernet/cronet-go/lib/linux_arm v0.0.0-20260513071149-ade33496efb8/go.mod h1:w9amBWrvjtohQzBGCKJ7LCh22LhTIJs4sE7cYaKQzM0=
+-github.com/sagernet/cronet-go/lib/linux_arm64 v0.0.0-20260513071149-ade33496efb8 h1:la4zRTE9zpZCmsixwzKT2LnHuo0e439EmGwOlB1An9Q=
+-github.com/sagernet/cronet-go/lib/linux_arm64 v0.0.0-20260513071149-ade33496efb8/go.mod h1:TqlsFtcYS/etTeck46kHBeT8Le0Igw1Q/AV88UnMS3s=
+-github.com/sagernet/cronet-go/lib/linux_arm64_musl v0.0.0-20260513071149-ade33496efb8 h1:KodFGMqn+X2dqET0O3xww3iemAGmpoC8U4JW8gwt0x4=
+-github.com/sagernet/cronet-go/lib/linux_arm64_musl v0.0.0-20260513071149-ade33496efb8/go.mod h1:B6Qd0vys8sv9OKVRN6J9RqDzYRGE938Fb2zrYdBDyTQ=
+-github.com/sagernet/cronet-go/lib/linux_arm_musl v0.0.0-20260513071149-ade33496efb8 h1:QTk1RXNLOIcorZYcF0rBrwLpCIZCKEA2Jr69eFrt8xg=
+-github.com/sagernet/cronet-go/lib/linux_arm_musl v0.0.0-20260513071149-ade33496efb8/go.mod h1:3tXMMFY7AHugOVBZ5Al7cL7JKsnFOe5bMVr0hZPk3ow=
+-github.com/sagernet/cronet-go/lib/linux_loong64 v0.0.0-20260513071149-ade33496efb8 h1:SXqSlM/GjZFvNdUV3IvHq5gqHfW4iWlQHMGzEsgXGXE=
+-github.com/sagernet/cronet-go/lib/linux_loong64 v0.0.0-20260513071149-ade33496efb8/go.mod h1:Wt5uFdU3tnmm8YzobYewwdF7Mt6SucRQg6xeTNWC3Tk=
+-github.com/sagernet/cronet-go/lib/linux_loong64_musl v0.0.0-20260513071149-ade33496efb8 h1:aAgLWpfESvy7rfDVH7ioOZQ7u2kmRsbUqJVrwJtkFWs=
+-github.com/sagernet/cronet-go/lib/linux_loong64_musl v0.0.0-20260513071149-ade33496efb8/go.mod h1:lyIF6wKBLwWa5ZXaAKbAoewewl+yCHo2iYev39Mbj4E=
+-github.com/sagernet/cronet-go/lib/linux_mips64le v0.0.0-20260513071149-ade33496efb8 h1:oTLUyhLckc8TZQ8SRCapgTYyRbz1pBpIvzjMCLMPFu8=
+-github.com/sagernet/cronet-go/lib/linux_mips64le v0.0.0-20260513071149-ade33496efb8/go.mod h1:H46PnSTTZNcZokLLiDeMDaHiS1l14PH3tzWi0eykjD8=
+-github.com/sagernet/cronet-go/lib/linux_mipsle v0.0.0-20260513071149-ade33496efb8 h1:LHm/85Y3zN0kNgG+li5qHvP3dzvavEytCYzdLtrfrrg=
+-github.com/sagernet/cronet-go/lib/linux_mipsle v0.0.0-20260513071149-ade33496efb8/go.mod h1:RBhSUDAKWq7fswtV4nQUQhuaTLcX3ettR7teA7/yf2w=
+-github.com/sagernet/cronet-go/lib/linux_mipsle_musl v0.0.0-20260513071149-ade33496efb8 h1:Pom5TSHV8Cln73uOgQlJ+JtmEu9xh+OuLHWq57dBaVg=
+-github.com/sagernet/cronet-go/lib/linux_mipsle_musl v0.0.0-20260513071149-ade33496efb8/go.mod h1:wRzoIOGG4xbpp3Gh3triLKwMwYriScXzFtunLYhY4w0=
+-github.com/sagernet/cronet-go/lib/linux_riscv64 v0.0.0-20260513071149-ade33496efb8 h1:1pPcb15BonaFl4153tRo7zOJ7U2zD1vjH+5JipSfJ3g=
+-github.com/sagernet/cronet-go/lib/linux_riscv64 v0.0.0-20260513071149-ade33496efb8/go.mod h1:LNiZXmWil1OPwKCheqQjtakZlJuKGFz+iv2eGF76Hhs=
+-github.com/sagernet/cronet-go/lib/linux_riscv64_musl v0.0.0-20260513071149-ade33496efb8 h1:3Dy4exYQ/IVJGcnTtvW3LmjfjDaxFgJT1hn/ALBpd2M=
+-github.com/sagernet/cronet-go/lib/linux_riscv64_musl v0.0.0-20260513071149-ade33496efb8/go.mod h1:YFDGKTkpkJGc5+hnX/RYosZyTWg9h+68VB55fYRRLYc=
+-github.com/sagernet/cronet-go/lib/tvos_amd64_simulator v0.0.0-20260513071149-ade33496efb8 h1:mo9YMCYTGCRUiWNKtPVQb+qEetufxnch372xUOh9q3M=
+-github.com/sagernet/cronet-go/lib/tvos_amd64_simulator v0.0.0-20260513071149-ade33496efb8/go.mod h1:aaX0YGl8nhGmfRWI8bc3BtDjY8Vzx6O0cS/e1uqxDq4=
+-github.com/sagernet/cronet-go/lib/tvos_arm64 v0.0.0-20260513071149-ade33496efb8 h1:mhh3JEDDx68oKT4kfqKlWp5QTyzVR84OS/qgqHYIbq0=
+-github.com/sagernet/cronet-go/lib/tvos_arm64 v0.0.0-20260513071149-ade33496efb8/go.mod h1:EdzMKA96xITc42QEI+ct4SwqX8Dn3ltKK8wzdkLWpSc=
+-github.com/sagernet/cronet-go/lib/tvos_arm64_simulator v0.0.0-20260513071149-ade33496efb8 h1:04KOo38hZojV3bJ5Vqwbpj48ZQy6o7aliYXLN/TNX6g=
+-github.com/sagernet/cronet-go/lib/tvos_arm64_simulator v0.0.0-20260513071149-ade33496efb8/go.mod h1:qix4kv1TTAJ5tY4lJ9vjhe9EY4mM+B7H5giOhbxDVcc=
+-github.com/sagernet/cronet-go/lib/windows_amd64 v0.0.0-20260513071149-ade33496efb8 h1:p535QakpDZEeBz/BfFZGZo0D+Pdn74TE8UTr6c6MSog=
+-github.com/sagernet/cronet-go/lib/windows_amd64 v0.0.0-20260513071149-ade33496efb8/go.mod h1:lm9w/oCCRyBiUa3G8lDQTT8x/ONUvgVR2iV9fVzUZB8=
+-github.com/sagernet/cronet-go/lib/windows_arm64 v0.0.0-20260513071149-ade33496efb8 h1:dovTyKHh3toBIUOS70P4Yx+3Baw6Gppsfy1sJbXoAy0=
+-github.com/sagernet/cronet-go/lib/windows_arm64 v0.0.0-20260513071149-ade33496efb8/go.mod h1:n34YyLgapgjWdKa0IoeczjAFCwD3/dxbsH5sucKw0bw=
++github.com/sagernet/cronet-go v0.0.0-20260807162344-ec9a39c5ba3b h1:SfX10lRxbq9ixHm4OZ4/7q+TSpK4Gh0lEVrPaIAB/K0=
++github.com/sagernet/cronet-go v0.0.0-20260807162344-ec9a39c5ba3b/go.mod h1:T/mwtrpC4JlWfScw73CmSBvHzIvc7BatQ1MhRr+cYNw=
++github.com/sagernet/cronet-go/all v0.0.0-20260807162344-ec9a39c5ba3b h1:ilEtBdfFgdHmCY3q/Gzp3wRDILYAT8wOh+jVAEAT77U=
++github.com/sagernet/cronet-go/all v0.0.0-20260807162344-ec9a39c5ba3b/go.mod h1:Mr2MlNGQYovxvSPGo0+HEgXJ+uITwvPMtp7kdZO8T9w=
++github.com/sagernet/cronet-go/lib/android_386 v0.0.0-20260807161529-8d42107dcdfc h1:JxjIRahHFgA766NTMNoQH5FHcSjo3OVdQbqMuqqvOSQ=
++github.com/sagernet/cronet-go/lib/android_386 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:XXDwdjX/T8xftoeJxQmbBoYXZp8MAPFR2CwbFuTpEtw=
++github.com/sagernet/cronet-go/lib/android_amd64 v0.0.0-20260807161529-8d42107dcdfc h1:U1M7GkzYchNnahyGiSGD1xAHJXoCiae3E8DDPWaeliA=
++github.com/sagernet/cronet-go/lib/android_amd64 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:iNiUGoLtnr8/JTuVNj7XJbmpOAp2C6+B81KDrPxwaZM=
++github.com/sagernet/cronet-go/lib/android_arm v0.0.0-20260807161529-8d42107dcdfc h1:Vtm7UuE69wKPNUakYjlxscX16LkQTEX1Uh6qf2YZj3Y=
++github.com/sagernet/cronet-go/lib/android_arm v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:19ILNUOGIzRdOqa2mq+iY0JoHxuieB7/lnjYeaA2vEc=
++github.com/sagernet/cronet-go/lib/android_arm64 v0.0.0-20260807161529-8d42107dcdfc h1:w48m0+ic4Y4pmW9ZIAo7o70fq/ioL1pgIKCggvvZiOU=
++github.com/sagernet/cronet-go/lib/android_arm64 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:JxzGyQf94Cr6sBShKqODGDyRUlESfJK/Njcz9Lz6qMQ=
++github.com/sagernet/cronet-go/lib/darwin_amd64 v0.0.0-20260807161529-8d42107dcdfc h1:1XkXOj47J9kPTBYZXIPraLG8V3vtQ2p6kI+EuLkNQVs=
++github.com/sagernet/cronet-go/lib/darwin_amd64 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:KN+9T9TBycGOLzmKU4QdcHAJEj6Nlx48ifnlTvvHMvs=
++github.com/sagernet/cronet-go/lib/darwin_arm64 v0.0.0-20260807161529-8d42107dcdfc h1:++dHyER9VY0KIfN18i0J2uQcp/DMySqVsUtSEso6mcU=
++github.com/sagernet/cronet-go/lib/darwin_arm64 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:kojvtUc29KKnk8hs2QIANynVR59921SnGWA9kXohHc0=
++github.com/sagernet/cronet-go/lib/ios_amd64_simulator v0.0.0-20260807161529-8d42107dcdfc h1:Jd84+nEjqapOYqxbbRaYD9WsqV/+UacrPngpzT3JOW4=
++github.com/sagernet/cronet-go/lib/ios_amd64_simulator v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:hkQzRE5GDbaH1/ioqYh0Taho4L6i0yLRCVEZ5xHz5M0=
++github.com/sagernet/cronet-go/lib/ios_arm64 v0.0.0-20260807161529-8d42107dcdfc h1:2q/pUYTulaxitrk+Uuwu+nnPeJCwoWCI8YB0b5JU5Pg=
++github.com/sagernet/cronet-go/lib/ios_arm64 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:tzVJFTOm66UxLxy6K0ZN5Ic2PC79e+sKKnt+V9puEa4=
++github.com/sagernet/cronet-go/lib/ios_arm64_simulator v0.0.0-20260807161529-8d42107dcdfc h1:KuR8ZjycdnaHpdlwER2BJcyQxFV89+Ci1MC7hQuDQtM=
++github.com/sagernet/cronet-go/lib/ios_arm64_simulator v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:M/pN6m3j0HFU6/y83n0HU6GLYys3tYdr/xTE8hVEGMo=
++github.com/sagernet/cronet-go/lib/linux_386 v0.0.0-20260807161529-8d42107dcdfc h1:5oWj5iZn7tg9wOC4VMltItUE87FDxubwICgtjSp+HAM=
++github.com/sagernet/cronet-go/lib/linux_386 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:cGh5hO6eljCo6KMQ/Cel8Xgq4+etL0awZLRBDVG1EZQ=
++github.com/sagernet/cronet-go/lib/linux_386_musl v0.0.0-20260807161529-8d42107dcdfc h1:EZBIqNjit9xGM1w9xKcQVzU3gtyNdEcgXPfmeVuTinM=
++github.com/sagernet/cronet-go/lib/linux_386_musl v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:JFE0/cxaKkx0wqPMZU7MgaplQlU0zudv82dROJjClKU=
++github.com/sagernet/cronet-go/lib/linux_amd64 v0.0.0-20260807161529-8d42107dcdfc h1:yOIHOVXOlmbvcs1Gm2xfcr84+mvAVN0zdXycfLgr3DE=
++github.com/sagernet/cronet-go/lib/linux_amd64 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:vU8VftFeSt7fURCa3JXD6+k6ss1YAX+idQjPvHmJ2tI=
++github.com/sagernet/cronet-go/lib/linux_amd64_musl v0.0.0-20260807161529-8d42107dcdfc h1:4uVapCorUiSKJ2xTi8BNLOTq878kFv3l+6+aDeYpuiE=
++github.com/sagernet/cronet-go/lib/linux_amd64_musl v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:vCe4OUuL+XOUge9v3MyTD45BnuAXiH+DkjN9quDXJzQ=
++github.com/sagernet/cronet-go/lib/linux_arm v0.0.0-20260807161529-8d42107dcdfc h1:fm2GA6JTp48rigyUtuzgu/G9WbMZ+o5QBylks1Noss0=
++github.com/sagernet/cronet-go/lib/linux_arm v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:w9amBWrvjtohQzBGCKJ7LCh22LhTIJs4sE7cYaKQzM0=
++github.com/sagernet/cronet-go/lib/linux_arm64 v0.0.0-20260807161529-8d42107dcdfc h1:kWx/l/TCx2hdUKnNn2uyKZAGkCeqm+vkhr84wZJkSgU=
++github.com/sagernet/cronet-go/lib/linux_arm64 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:TqlsFtcYS/etTeck46kHBeT8Le0Igw1Q/AV88UnMS3s=
++github.com/sagernet/cronet-go/lib/linux_arm64_musl v0.0.0-20260807161529-8d42107dcdfc h1:XnHUep8+amHCWW3WWCD6/QAZYAXkcLUeCZqs0SnXp7M=
++github.com/sagernet/cronet-go/lib/linux_arm64_musl v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:B6Qd0vys8sv9OKVRN6J9RqDzYRGE938Fb2zrYdBDyTQ=
++github.com/sagernet/cronet-go/lib/linux_arm_musl v0.0.0-20260807161529-8d42107dcdfc h1:F7rgwvKytTxeU3G3RpZlH0o77J6OmbZpxaUkTWk1+cE=
++github.com/sagernet/cronet-go/lib/linux_arm_musl v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:3tXMMFY7AHugOVBZ5Al7cL7JKsnFOe5bMVr0hZPk3ow=
++github.com/sagernet/cronet-go/lib/linux_loong64 v0.0.0-20260807161529-8d42107dcdfc h1:lpq6aztgg4Luspo4V4SresrCg7+bXlpZ45EfAwpWabg=
++github.com/sagernet/cronet-go/lib/linux_loong64 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:Wt5uFdU3tnmm8YzobYewwdF7Mt6SucRQg6xeTNWC3Tk=
++github.com/sagernet/cronet-go/lib/linux_loong64_musl v0.0.0-20260807161529-8d42107dcdfc h1:o66baLwgg/aI14jCX6lrQ+1EPkn7RS4cFWJQRKXYXqM=
++github.com/sagernet/cronet-go/lib/linux_loong64_musl v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:lyIF6wKBLwWa5ZXaAKbAoewewl+yCHo2iYev39Mbj4E=
++github.com/sagernet/cronet-go/lib/linux_mips64le v0.0.0-20260807161529-8d42107dcdfc h1:7tSY8HPMvf/piEi0TywA/dQWyp1lAJH9U/qyn4+DKY8=
++github.com/sagernet/cronet-go/lib/linux_mips64le v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:H46PnSTTZNcZokLLiDeMDaHiS1l14PH3tzWi0eykjD8=
++github.com/sagernet/cronet-go/lib/linux_mipsle v0.0.0-20260807161529-8d42107dcdfc h1:zgHBT1uv5UQ/GHVMn4j6NXelH7ukIo0IQQLsntV+VfA=
++github.com/sagernet/cronet-go/lib/linux_mipsle v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:RBhSUDAKWq7fswtV4nQUQhuaTLcX3ettR7teA7/yf2w=
++github.com/sagernet/cronet-go/lib/linux_mipsle_musl v0.0.0-20260807161529-8d42107dcdfc h1:HNzghnPzq2RK5TXjl5QIVPm44FKzw6pds1GQINAYD80=
++github.com/sagernet/cronet-go/lib/linux_mipsle_musl v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:wRzoIOGG4xbpp3Gh3triLKwMwYriScXzFtunLYhY4w0=
++github.com/sagernet/cronet-go/lib/linux_riscv64 v0.0.0-20260807161529-8d42107dcdfc h1:xAaqyzbYqGPJbKCa6onmX7Bs2HXM1mvbEdMtdAiXplA=
++github.com/sagernet/cronet-go/lib/linux_riscv64 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:LNiZXmWil1OPwKCheqQjtakZlJuKGFz+iv2eGF76Hhs=
++github.com/sagernet/cronet-go/lib/linux_riscv64_musl v0.0.0-20260807161529-8d42107dcdfc h1:dHay8gOPaH4kwcTnxQeAEZaIw88Y0V6Gmef3HkdX31U=
++github.com/sagernet/cronet-go/lib/linux_riscv64_musl v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:YFDGKTkpkJGc5+hnX/RYosZyTWg9h+68VB55fYRRLYc=
++github.com/sagernet/cronet-go/lib/tvos_amd64_simulator v0.0.0-20260807161529-8d42107dcdfc h1:NLAel/XTGYWExz5gpFzlsX+BZba3/6Wgz1xwOzux9r0=
++github.com/sagernet/cronet-go/lib/tvos_amd64_simulator v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:aaX0YGl8nhGmfRWI8bc3BtDjY8Vzx6O0cS/e1uqxDq4=
++github.com/sagernet/cronet-go/lib/tvos_arm64 v0.0.0-20260807161529-8d42107dcdfc h1:/k71v3Hs2m6mpDTWVm2W6spZNd+do9U+1jBYTOIPj3g=
++github.com/sagernet/cronet-go/lib/tvos_arm64 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:EdzMKA96xITc42QEI+ct4SwqX8Dn3ltKK8wzdkLWpSc=
++github.com/sagernet/cronet-go/lib/tvos_arm64_simulator v0.0.0-20260807161529-8d42107dcdfc h1:HUB2CvXtgggtQNW5ix670s9Qd+vCiy5aFKEFJO5/UL8=
++github.com/sagernet/cronet-go/lib/tvos_arm64_simulator v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:qix4kv1TTAJ5tY4lJ9vjhe9EY4mM+B7H5giOhbxDVcc=
++github.com/sagernet/cronet-go/lib/windows_amd64 v0.0.0-20260807161529-8d42107dcdfc h1:rWdo0pRYdrGvZ0turVxLqsXsizj+AS/nivMHX0RHtLw=
++github.com/sagernet/cronet-go/lib/windows_amd64 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:lm9w/oCCRyBiUa3G8lDQTT8x/ONUvgVR2iV9fVzUZB8=
++github.com/sagernet/cronet-go/lib/windows_arm64 v0.0.0-20260807161529-8d42107dcdfc h1:+3Fe+RdrbyEGyi66Kt8BromMTFGVw6+8ZTEqKF4kCaU=
++github.com/sagernet/cronet-go/lib/windows_arm64 v0.0.0-20260807161529-8d42107dcdfc/go.mod h1:n34YyLgapgjWdKa0IoeczjAFCwD3/dxbsH5sucKw0bw=
+ github.com/sagernet/fswatch v0.1.2 h1:/TT7k4mkce1qFPxamLO842WjqBgbTBiXP2mlUjp9PFk=
+ github.com/sagernet/fswatch v0.1.2/go.mod h1:5BpGmpUQVd3Mc5r313HRpvADHRg3/rKn5QbwFteB880=
+ github.com/sagernet/gvisor v0.0.0-20250811.0-sing-box-mod.1 h1:AzCE2RhBjLJ4WIWc/GejpNh+z30d5H1hwaB0nD9eY3o=
+@@ -294,34 +297,34 @@ github.com/sagernet/nftables v0.3.0-mod.2 h1:ck2KMU02OxL1eDFgGaWYglMDpoOZ7OHzxje
+ github.com/sagernet/nftables v0.3.0-mod.2/go.mod h1:8kslHG4VvYNihcco+i6uxIX7qbT8A56T0y5q7U44ZaQ=
+ github.com/sagernet/quic-go v0.59.0-sing-box-mod.4 h1:6qvrUW79S+CrPwWz6cMePXohgjHoKxLo3c+MDhNwc3o=
+ github.com/sagernet/quic-go v0.59.0-sing-box-mod.4/go.mod h1:OqILvS182CyOol5zNNo6bguvOGgXzV459+chpRaUC+4=
+-github.com/sagernet/sing v0.8.10 h1:V5VZffy8rm4dtBVKIpKa8vibRR2SiJprtu/10DFUalU=
+-github.com/sagernet/sing v0.8.10/go.mod h1:olXxWQNqRW/l2Q6JI3b2Qmz8iQnIFlOeeH8bx6JhgUA=
+-github.com/sagernet/sing-box v1.13.12 h1:U7znhM2VRq76ZdN4X5eRKdaUxHJNHMGKpo2csKqGTsg=
+-github.com/sagernet/sing-box v1.13.12/go.mod h1:dgvcaNmNZTdeiDbnpQ+EghpE+KPR+8yKtfoVEhUi3jw=
+-github.com/sagernet/sing-mux v0.3.4 h1:ZQplKl8MNXutjzbMVtWvWG31fohhgOfCuUZR4dVQ8+s=
+-github.com/sagernet/sing-mux v0.3.4/go.mod h1:QvlKMyNBNrQoyX4x+gq028uPbLM2XeRpWtDsWBJbFSk=
+-github.com/sagernet/sing-quic v0.6.1 h1:lx0tcm99wIA1RkyvILNzRSsMy1k7TTQYIhx71E/WBlw=
+-github.com/sagernet/sing-quic v0.6.1/go.mod h1:K5bWvITOm4vE10fwLfrWpw27bCoVJ+tfQ79tOWg+Ko8=
++github.com/sagernet/sing v0.8.12 h1:v77YM0gB0uCQ74f1RmiTDtkV8eNT6Qtniobxh012a5I=
++github.com/sagernet/sing v0.8.12/go.mod h1:olXxWQNqRW/l2Q6JI3b2Qmz8iQnIFlOeeH8bx6JhgUA=
++github.com/sagernet/sing-box v1.13.18 h1:HQLgU9f/qAZc1KGjj7O2hw9O283YKZwDbnpIg/h8fVA=
++github.com/sagernet/sing-box v1.13.18/go.mod h1:mITr6xrAsuUNkdblWG5WYY5LCS47pwq9zJPrhXz62gA=
++github.com/sagernet/sing-mux v0.3.5 h1:RHnhVEc+SFqkrK4xMygYjDwwLhzp2Bj3lztSukONfhI=
++github.com/sagernet/sing-mux v0.3.5/go.mod h1:QvlKMyNBNrQoyX4x+gq028uPbLM2XeRpWtDsWBJbFSk=
++github.com/sagernet/sing-quic v0.6.4-0.20260803041914-d83826c306d7 h1:D46kmyvKMNVFvL3KXdq3T4vy8r29xCMmSqNuQHJBybE=
++github.com/sagernet/sing-quic v0.6.4-0.20260803041914-d83826c306d7/go.mod h1:K5bWvITOm4vE10fwLfrWpw27bCoVJ+tfQ79tOWg+Ko8=
+ github.com/sagernet/sing-shadowsocks v0.2.8 h1:PURj5PRoAkqeHh2ZW205RWzN9E9RtKCVCzByXruQWfE=
+ github.com/sagernet/sing-shadowsocks v0.2.8/go.mod h1:lo7TWEMDcN5/h5B8S0ew+r78ZODn6SwVaFhvB6H+PTI=
+ github.com/sagernet/sing-shadowsocks2 v0.2.1 h1:dWV9OXCeFPuYGHb6IRqlSptVnSzOelnqqs2gQ2/Qioo=
+ github.com/sagernet/sing-shadowsocks2 v0.2.1/go.mod h1:RnXS0lExcDAovvDeniJ4IKa2IuChrdipolPYWBv9hWQ=
+-github.com/sagernet/sing-shadowtls v0.2.1-0.20250503051639-fcd445d33c11 h1:tK+75l64tm9WvEFrYRE1t0YxoFdWQqw/h7Uhzj0vJ+w=
+-github.com/sagernet/sing-shadowtls v0.2.1-0.20250503051639-fcd445d33c11/go.mod h1:sWqKnGlMipCHaGsw1sTTlimyUpgzP4WP3pjhCsYt9oA=
+-github.com/sagernet/sing-tun v0.8.9 h1:ixFKKUGdVcJl4wb0xbL36hobiw9l6DIH497EQf5ILpM=
+-github.com/sagernet/sing-tun v0.8.9/go.mod h1:QvarqUtHfj1ULaRR+6kZOS/OoCE+pYGq67A5tyIy+dQ=
++github.com/sagernet/sing-shadowtls v0.2.1 h1:ZiHZdnEnP+YS73NMsxiZmIFCwNd0M4k7PkGCKNXhbaM=
++github.com/sagernet/sing-shadowtls v0.2.1/go.mod h1:sWqKnGlMipCHaGsw1sTTlimyUpgzP4WP3pjhCsYt9oA=
++github.com/sagernet/sing-tun v0.8.12-0.20260727151122-3a09076491df h1:IVG68QmUeO9xlvrBMB/0u/prBot+jIiEjCsNterk7qs=
++github.com/sagernet/sing-tun v0.8.12-0.20260727151122-3a09076491df/go.mod h1:QvarqUtHfj1ULaRR+6kZOS/OoCE+pYGq67A5tyIy+dQ=
+ github.com/sagernet/sing-vmess v0.2.8-0.20250909125414-3aed155119a1 h1:aSwUNYUkVyVvdmBSufR8/nRFonwJeKSIROxHcm5br9o=
+ github.com/sagernet/sing-vmess v0.2.8-0.20250909125414-3aed155119a1/go.mod h1:P11scgTxMxVVQ8dlM27yNm3Cro40mD0+gHbnqrNGDuY=
+ github.com/sagernet/smux v1.5.50-sing-box-mod.1 h1:XkJcivBC9V4wBjiGXIXZ229aZCU1hzcbp6kSkkyQ478=
+ github.com/sagernet/smux v1.5.50-sing-box-mod.1/go.mod h1:NjhsCEWedJm7eFLyhuBgIEzwfhRmytrUoiLluxs5Sk8=
+-github.com/sagernet/tailscale v1.92.4-sing-box-1.13-mod.7 h1:8zc1Aph1+ElqF9/7aSPkO0o4vTd+AfQC+CO324mLWGg=
+-github.com/sagernet/tailscale v1.92.4-sing-box-1.13-mod.7/go.mod h1:m87GAn4UcesHQF3leaPFEINZETO5za1LGn1GJdNDgNc=
+-github.com/sagernet/wireguard-go v0.0.2-beta.1.0.20260224074747-506b7631853c h1:f9cXNB+IOOPnR8DOLMTpr42jf7naxh5Un5Y09BBf5Cg=
+-github.com/sagernet/wireguard-go v0.0.2-beta.1.0.20260224074747-506b7631853c/go.mod h1:WUxgxUDZoCF2sxVmW+STSxatP02Qn3FcafTiI2BLtE0=
++github.com/sagernet/tailscale v1.92.4-sing-box-1.13-mod.9 h1:ytlmw4f8AOjyJH3SeDMF4j6tQ679W4+dMS0JMl/e7pQ=
++github.com/sagernet/tailscale v1.92.4-sing-box-1.13-mod.9/go.mod h1:p8Ms8FbGlwQJyHb862XmdShTS50fFJ8C71VdO6xvWyk=
++github.com/sagernet/wireguard-go v0.0.4 h1:w/vHtk7AzMG37+D/uQROBL72Gj/Gj+FHMY5kg4q0CQ4=
++github.com/sagernet/wireguard-go v0.0.4/go.mod h1:hEqi4y5czEg6LYtX2Bpjg+lV0b/J1n+5rA885Z66Mx0=
+ github.com/sagernet/ws v0.0.0-20231204124109-acfe8907c854 h1:6uUiZcDRnZSAegryaUGwPC/Fj13JSHwiTftrXhMmYOc=
+ github.com/sagernet/ws v0.0.0-20231204124109-acfe8907c854/go.mod h1:LtfoSK3+NG57tvnVEHgcuBW9ujgE8enPSgzgwStwCAA=
+-github.com/shirou/gopsutil/v4 v4.26.4 h1:B4SXVbcwTyrocPHEmWBC4uCYr4Xcu3MK1TXqbprAOWY=
+-github.com/shirou/gopsutil/v4 v4.26.4/go.mod h1:LZ6ewCSkBqUpvSOf+LsTGnRinC6iaNUNMGBtDkJBaLQ=
++github.com/shirou/gopsutil/v4 v4.26.7 h1:IXzpHz/dkMRYAhKkOXr1HB6SuzWU3eoyyeWe7g3bNZc=
++github.com/shirou/gopsutil/v4 v4.26.7/go.mod h1:5O9FjBiXoTDFatIWjZZosqj4pV0DRtLx598xGbBehzM=
+ github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+ github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
+ github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=
+@@ -387,16 +390,21 @@ go.mongodb.org/mongo-driver/v2 v2.5.0 h1:yXUhImUjjAInNcpTcAlPHiT7bIXhshCTL3jVBkF
+ go.mongodb.org/mongo-driver/v2 v2.5.0/go.mod h1:yOI9kBsufol30iFsl1slpdq1I0eHPzybRWdyYUs8K/0=
+ go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
+ go.opentelemetry.io/auto/sdk v1.2.1/go.mod h1:KRTj+aOaElaLi+wW1kO/DZRXwkF4C5xPbEe3ZiIhN7Y=
+-go.opentelemetry.io/otel v1.39.0 h1:8yPrr/S0ND9QEfTfdP9V+SiwT4E0G7Y5MO7p85nis48=
+-go.opentelemetry.io/otel v1.39.0/go.mod h1:kLlFTywNWrFyEdH0oj2xK0bFYZtHRYUdv1NklR/tgc8=
+-go.opentelemetry.io/otel/metric v1.39.0 h1:d1UzonvEZriVfpNKEVmHXbdf909uGTOQjA0HF0Ls5Q0=
+-go.opentelemetry.io/otel/metric v1.39.0/go.mod h1:jrZSWL33sD7bBxg1xjrqyDjnuzTUB0x1nBERXd7Ftcs=
+-go.opentelemetry.io/otel/sdk v1.39.0 h1:nMLYcjVsvdui1B/4FRkwjzoRVsMK8uL/cj0OyhKzt18=
+-go.opentelemetry.io/otel/sdk v1.39.0/go.mod h1:vDojkC4/jsTJsE+kh+LXYQlbL8CgrEcwmt1ENZszdJE=
+-go.opentelemetry.io/otel/sdk/metric v1.39.0 h1:cXMVVFVgsIf2YL6QkRF4Urbr/aMInf+2WKg+sEJTtB8=
+-go.opentelemetry.io/otel/sdk/metric v1.39.0/go.mod h1:xq9HEVH7qeX69/JnwEfp6fVq5wosJsY1mt4lLfYdVew=
+-go.opentelemetry.io/otel/trace v1.39.0 h1:2d2vfpEDmCJ5zVYz7ijaJdOF59xLomrvj7bjt6/qCJI=
+-go.opentelemetry.io/otel/trace v1.39.0/go.mod h1:88w4/PnZSazkGzz/w84VHpQafiU4EtqqlVdxWy+rNOA=
++go.opentelemetry.io/otel v1.43.0 h1:mYIM03dnh5zfN7HautFE4ieIig9amkNANT+xcVxAj9I=
++go.opentelemetry.io/otel v1.43.0/go.mod h1:JuG+u74mvjvcm8vj8pI5XiHy1zDeoCS2LB1spIq7Ay0=
++go.opentelemetry.io/otel v1.44.0 h1:JjwHmHpA4iZ3wBxluu2fbbE7j4kqlE8jXyAyPXH7HqU=
++go.opentelemetry.io/otel/metric v1.43.0 h1:d7638QeInOnuwOONPp4JAOGfbCEpYb+K6DVWvdxGzgM=
++go.opentelemetry.io/otel/metric v1.43.0/go.mod h1:RDnPtIxvqlgO8GRW18W6Z/4P462ldprJtfxHxyKd2PY=
++go.opentelemetry.io/otel/metric v1.44.0 h1:1w0gILTcHdr3YI+ixLyjemwrVnsMURbTZFrSYCdDdmc=
++go.opentelemetry.io/otel/sdk v1.43.0 h1:pi5mE86i5rTeLXqoF/hhiBtUNcrAGHLKQdhg4h4V9Dg=
++go.opentelemetry.io/otel/sdk v1.43.0/go.mod h1:P+IkVU3iWukmiit/Yf9AWvpyRDlUeBaRg6Y+C58QHzg=
++go.opentelemetry.io/otel/sdk v1.44.0 h1:nHYwb9lK+fJPU/dnT6s7W7Z8itMWyqrnVfbheVYrZ58=
++go.opentelemetry.io/otel/sdk/metric v1.43.0 h1:S88dyqXjJkuBNLeMcVPRFXpRw2fuwdvfCGLEo89fDkw=
++go.opentelemetry.io/otel/sdk/metric v1.43.0/go.mod h1:C/RJtwSEJ5hzTiUz5pXF1kILHStzb9zFlIEe85bhj6A=
++go.opentelemetry.io/otel/sdk/metric v1.44.0 h1:3LlKgI+VjbVsjNRFZJZAJ30WjXC5VkNRks6si09iEfI=
++go.opentelemetry.io/otel/trace v1.43.0 h1:BkNrHpup+4k4w+ZZ86CZoHHEkohws8AY+WTX09nk+3A=
++go.opentelemetry.io/otel/trace v1.43.0/go.mod h1:/QJhyVBUUswCphDVxq+8mld+AvhXZLhe+8WVFxiFff0=
++go.opentelemetry.io/otel/trace v1.44.0 h1:jxF5CsGYCe74MCRx2X4g7WsY/VBKRqqpNvXlX/6gtIk=
+ go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
+ go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
+ go.uber.org/mock v0.6.0 h1:hyF9dfmbgIX5EfOdasqLsWD6xqpNZlXblLB/Dbnwv3Y=
+@@ -414,23 +422,23 @@ go4.org/netipx v0.0.0-20231129151722-fdeea329fbba/go.mod h1:PLyyIXexvUFg3Owu6p/W
+ golang.org/x/arch v0.22.0 h1:c/Zle32i5ttqRXjdLyyHZESLD/bB90DCU1g9l/0YBDI=
+ golang.org/x/arch v0.22.0/go.mod h1:dNHoOeKiyja7GTvF9NJS1l3Z2yntpQNzgrjh1cU103A=
+ golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a/go.mod h1:P+XmwS30IXTQdn5tA2iutPOUgjI07+tq3H3K9MVA1s8=
+-golang.org/x/crypto v0.48.0 h1:/VRzVqiRSggnhY7gNRxPauEQ5Drw9haKdM0jqfcCFts=
+-golang.org/x/crypto v0.48.0/go.mod h1:r0kV5h3qnFPlQnBSrULhlsRfryS2pmewsg+XfMgkVos=
++golang.org/x/crypto v0.54.0 h1:YLIA59K4fiNzHzjnZt2tUJQjQtUWfWbeHBqKtk3eScw=
++golang.org/x/crypto v0.54.0/go.mod h1:KWL8ny2AZdGR2cWmzeHrp2azQPGogOv+HeQaVEXC2dk=
+ golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93 h1:fQsdNF2N+/YewlRZiricy4P1iimyPKZ/xwniHj8Q2a0=
+ golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93/go.mod h1:EPRbTFwzwjXj9NpYyyrvenVh9Y+GFeEvMNh7Xuz7xgU=
+ golang.org/x/image v0.27.0 h1:C8gA4oWU/tKkdCfYT6T2u4faJu3MeNS5O8UPWlPF61w=
+ golang.org/x/image v0.27.0/go.mod h1:xbdrClrAUway1MUTEZDq9mz/UpRwYAkFFNUslZtcB+g=
+-golang.org/x/mod v0.33.0 h1:tHFzIWbBifEmbwtGz65eaWyGiGZatSrT9prnU8DbVL8=
+-golang.org/x/mod v0.33.0/go.mod h1:swjeQEj+6r7fODbD2cqrnje9PnziFuw4bmLbBZFrQ5w=
++golang.org/x/mod v0.37.0 h1:vF1DjpVEshcIqoEaauuHebaLk1O1forxjxBaVn884JQ=
++golang.org/x/mod v0.37.0/go.mod h1:m8S8VeM9r4dzDwjrKO0a1sZP3YjeMamRRlD+fmR2Q/0=
+ golang.org/x/net v0.0.0-20210226172049-e18ecbb05110/go.mod h1:m0MpNAwzfU5UDzcl9v0D8zg8gWTRqZa9RBIspLL5mdg=
+ golang.org/x/net v0.0.0-20210525063256-abc453219eb5/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
+-golang.org/x/net v0.51.0 h1:94R/GTO7mt3/4wIKpcR5gkGmRLOuE/2hNGeWq/GBIFo=
+-golang.org/x/net v0.51.0/go.mod h1:aamm+2QF5ogm02fjy5Bb7CQ0WMt1/WVM7FtyaTLlA9Y=
+-golang.org/x/oauth2 v0.34.0 h1:hqK/t4AKgbqWkdkcAeI8XLmbK+4m4G5YeQRrmiotGlw=
+-golang.org/x/oauth2 v0.34.0/go.mod h1:lzm5WQJQwKZ3nwavOZ3IS5Aulzxi68dUSgRHujetwEA=
++golang.org/x/net v0.56.0 h1:Rw8j/hFzGvJUZwNBXnAtf5sVDVt+65SK2C7IxCxZt5o=
++golang.org/x/net v0.56.0/go.mod h1:D3Ku6r+V6JROoZK144D2XfMHFcMq/0zSfLelVTCFKec=
++golang.org/x/oauth2 v0.36.0 h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=
++golang.org/x/oauth2 v0.36.0/go.mod h1:YDBUJMTkDnJS+A4BP4eZBjCqtokkg1hODuPjwiGPO7Q=
+ golang.org/x/sync v0.0.0-20210220032951-036812b2e83c/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+-golang.org/x/sync v0.20.0 h1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4=
+-golang.org/x/sync v0.20.0/go.mod h1:9xrNwdLfx4jkKbNva9FpL6vEN7evnE43NNNJQ2LF3+0=
++golang.org/x/sync v0.22.0 h1:SZjpbeLmrCk4xhRSZFNZW5gFUeCeFgjekvI/+gfScek=
++golang.org/x/sync v0.22.0/go.mod h1:9xrNwdLfx4jkKbNva9FpL6vEN7evnE43NNNJQ2LF3+0=
+ golang.org/x/sys v0.0.0-20190916202348-b4ddaad3f8a3/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20200217220822-9197077df867/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+@@ -439,32 +447,39 @@ golang.org/x/sys v0.0.0-20201204225414-ed752295db88/go.mod h1:h1NjWce9XRLGQEsW7w
+ golang.org/x/sys v0.0.0-20210423082822-04245dca01da/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.1.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+-golang.org/x/sys v0.41.0 h1:Ivj+2Cp/ylzLiEU89QhWblYnOE9zerudt9Ftecq2C6k=
+-golang.org/x/sys v0.41.0/go.mod h1:OgkHotnGiDImocRcuBABYBEXf8A9a87e/uXjp9XT3ks=
++golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
++golang.org/x/sys v0.47.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
+ golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
+-golang.org/x/term v0.40.0 h1:36e4zGLqU4yhjlmxEaagx2KuYbJq3EwY8K943ZsHcvg=
+-golang.org/x/term v0.40.0/go.mod h1:w2P8uVp06p2iyKKuvXIm7N/y0UCRt3UfJTfZ7oOpglM=
++golang.org/x/term v0.45.0 h1:NwWyBmoJCbfTHpxrWoZ9C6/VxOf7ic219I8xZZFdrf0=
++golang.org/x/term v0.45.0/go.mod h1:9aqxs0blBcrm/n0L9QW0aRVD+ktan8ssZromtqJC43w=
+ golang.org/x/text v0.3.3/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+ golang.org/x/text v0.3.6/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+-golang.org/x/text v0.35.0 h1:JOVx6vVDFokkpaq1AEptVzLTpDe9KGpj5tR4/X+ybL8=
+-golang.org/x/text v0.35.0/go.mod h1:khi/HExzZJ2pGnjenulevKNX1W67CUy0AsXcNubPGCA=
+-golang.org/x/time v0.12.0 h1:ScB/8o8olJvc+CQPWrK3fPZNfh7qgwCrY0zJmoEQLSE=
+-golang.org/x/time v0.12.0/go.mod h1:CDIdPxbZBQxdj6cxyCIdrNogrJKMJ7pr37NYpMcMDSg=
++golang.org/x/text v0.40.0 h1:Ub2Z6/xjgF1WrYQz2nuITOEegKFtiIy+rieRJ5lHZKs=
++golang.org/x/text v0.40.0/go.mod h1:hpnzDAfGV753zIKo+wk3u1bVKCGPbrnF7+7LBF/UHVY=
++golang.org/x/time v0.11.0 h1:/bpjEDfN9tkoN/ryeYHnv5hcMlc8ncjMcM4XBk5NWV0=
++golang.org/x/time v0.11.0/go.mod h1:CDIdPxbZBQxdj6cxyCIdrNogrJKMJ7pr37NYpMcMDSg=
+ golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
+-golang.org/x/tools v0.42.0 h1:uNgphsn75Tdz5Ji2q36v/nsFSfR/9BRFvqhGBaJGd5k=
+-golang.org/x/tools v0.42.0/go.mod h1:Ma6lCIwGZvHK6XtgbswSoWroEkhugApmsXyrUmBhfr0=
++golang.org/x/tools v0.47.0 h1:7Kn5x/d1svx/PzryTsqeoZN4TZwqeH5pGWjefhLi/1Q=
++golang.org/x/tools v0.47.0/go.mod h1:dFHnyTvFWY212G+h7ZY4Vsp/K3U4/7W9TyVaAul8uCA=
++golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+ golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 h1:B82qJJgjvYKsXS9jeunTOisW56dUokqW/FOteYJJ/yg=
+ golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2/go.mod h1:deeaetjYA+DHMHg+sMSMI58GrEteJUUzzw7en6TJQcI=
+ golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10 h1:3GDAcqdIg1ozBNLgPy4SLT84nfcBjr6rhGtXYtrkWLU=
+ golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10/go.mod h1:T97yPqesLiNrOYxkwmhMI0ZIlJDm+p0PMR8eRVeR5tQ=
+ golang.zx2c4.com/wireguard/windows v0.5.3 h1:On6j2Rpn3OEMXqBq00QEDC7bWSZrPIHKIus8eIuExIE=
+ golang.zx2c4.com/wireguard/windows v0.5.3/go.mod h1:9TEe8TJmtwyQebdFwAkEWOPr3prrtqm+REGFifP60hI=
+-gonum.org/v1/gonum v0.16.0 h1:5+ul4Swaf3ESvrOnidPp4GZbzf0mxVQpDCYUQE7OJfk=
+-gonum.org/v1/gonum v0.16.0/go.mod h1:fef3am4MQ93R2HHpKnLk4/Tbh/s0+wqD5nfa6Pnwy4E=
+-google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 h1:gRkg/vSppuSQoDjxyiGfN4Upv/h/DQmIR10ZU8dh4Ww=
+-google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217/go.mod h1:7i2o+ce6H/6BluujYR+kqX3GKH+dChPTQU19wjRPiGk=
+-google.golang.org/grpc v1.79.3 h1:sybAEdRIEtvcD68Gx7dmnwjZKlyfuc61Dyo9pGXXkKE=
+-google.golang.org/grpc v1.79.3/go.mod h1:KmT0Kjez+0dde/v2j9vzwoAScgEPx/Bw1CYChhHLrHQ=
++gonum.org/v1/gonum v0.17.0 h1:VbpOemQlsSMrYmn7T2OUvQ4dqxQXU+ouZFQsZOx50z4=
++gonum.org/v1/gonum v0.17.0/go.mod h1:El3tOrEuMpv2UdMrbNlKEh9vd86bmQ6vqIcDwxEOc1E=
++google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 h1:RmoJA1ujG+/lRGNfUnOMfhCy5EipVMyvUE+KNbPbTlw=
++google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478/go.mod h1:4Hqkh8ycfw05ld/3BWL7rJOSfebL2Q+DVDeRgYgxUU8=
++google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa h1:mZHHdPZl0dbGHCflZgAq/Q468DWVFcU2whhB2KAo8fk=
++google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa/go.mod h1:4Hqkh8ycfw05ld/3BWL7rJOSfebL2Q+DVDeRgYgxUU8=
++google.golang.org/genproto/googleapis/rpc v0.0.0-20260807164820-c8921c73eeea h1:kVhQEPTpKQahD5+JSBTfBB19wcgQTTjAIn45MBqnyHk=
++google.golang.org/genproto/googleapis/rpc v0.0.0-20260807164820-c8921c73eeea/go.mod h1:4Hqkh8ycfw05ld/3BWL7rJOSfebL2Q+DVDeRgYgxUU8=
++google.golang.org/grpc v1.82.1 h1:NnAxzGRA0677vCa4BUkOAnO5+FfQqVl9iUXeD0IqcGE=
++google.golang.org/grpc v1.82.1/go.mod h1:yzTZ1TB1Z3SG+LIYaI+WiE8D5+PZ3ArnrSp8zF3+/ZA=
++google.golang.org/grpc v1.83.0 h1:JeNZEKJFbQxArAMl+hiytHauacDNqJUllNfmIMmpqnQ=
++google.golang.org/grpc v1.83.0/go.mod h1:kDyl6SKsiHKt0uylY5gtn5cEjkrIOhQOGDgIc4JGwzQ=
+ google.golang.org/protobuf v1.36.11 h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=
+ google.golang.org/protobuf v1.36.11/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
+ gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+@@ -477,9 +492,9 @@ gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+ gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+ gorm.io/driver/sqlite v1.6.0 h1:WHRRrIiulaPiPFmDcod6prc4l2VGVWHz80KspNsxSfQ=
+ gorm.io/driver/sqlite v1.6.0/go.mod h1:AO9V1qIQddBESngQUKWL9yoH93HIeA1X6V633rBwyT8=
+-gorm.io/gorm v1.31.1 h1:7CA8FTFz/gRfgqgpeKIBcervUn3xSyPUmr6B2WXJ7kg=
+-gorm.io/gorm v1.31.1/go.mod h1:XyQVbO2k6YkOis7C2437jSit3SsDK72s7n7rsSHd+Gs=
+-lukechampine.com/blake3 v1.4.1 h1:I3Smz7gso8w4/TunLKec6K2fn+kyKtDxr/xcQEN84Wg=
+-lukechampine.com/blake3 v1.4.1/go.mod h1:QFosUxmjB8mnrWFSNwKmvxHpfY72bmD2tQ0kBMM3kwo=
++gorm.io/gorm v1.31.2 h1:3o8FXNo9v9S858gil+3LlZA1LkCOzgb4g5BL64FgaCo=
++gorm.io/gorm v1.31.2/go.mod h1:XyQVbO2k6YkOis7C2437jSit3SsDK72s7n7rsSHd+Gs=
++lukechampine.com/blake3 v1.3.0 h1:sJ3XhFINmHSrYCgl958hscfIa3bw8x4DqMP3u1YvoYE=
++lukechampine.com/blake3 v1.3.0/go.mod h1:0OFRp7fBtAylGVCO40o87sbupkyIGgbpv1+M1k1LM6k=
+ software.sslmate.com/src/go-pkcs12 v0.4.0 h1:H2g08FrTvSFKUj+D309j1DPfk5APnIdAQAB8aEykJ5k=
+ software.sslmate.com/src/go-pkcs12 v0.4.0/go.mod h1:Qiz0EyvDRJjjxGyUQa2cCNZn/wMyzrRJ/qcDXOQazLI=
+diff --git a/install.sh b/install.sh
+index 501e941..3a55418 100755
+--- a/install.sh
++++ b/install.sh
+@@ -7,9 +7,131 @@ plain='\033[0m'
+ 
+ cur_dir=$(pwd)
+ 
++# Full-auto is the DEFAULT install mode: every command runs start-to-finish with
++# no prompts. On a fresh install it generates random admin credentials + a random
++# panel path + free ports + an API token and opens the firewall, then prints the
++# access info; on an upgrade it keeps existing settings untouched. To get the old
++# interactive flow back, set SUI_AUTO=0 (or n). Examples:
++#   bash <(curl -Ls https://raw.githubusercontent.com/Teminuosi/s-ui/main/install.sh)            # auto (default)
++#   SUI_AUTO=0 bash <(curl -Ls https://raw.githubusercontent.com/Teminuosi/s-ui/main/install.sh) # interactive
++SUI_AUTO="${SUI_AUTO:-1}"
++
++is_auto() {
++    [[ "$SUI_AUTO" != "0" && "$SUI_AUTO" != "n" && "$SUI_AUTO" != "N" ]]
++}
++
++# auto_read VAR DEFAULT PROMPT
++# In auto mode: assign DEFAULT to VAR (caller scope) and echo the choice.
++# Otherwise behave like the plain `read -rp PROMPT VAR` it replaces.
++auto_read() {
++    local __av="$1" __ad="$2" __ap="$3"
++    if is_auto; then
++        printf -v "$__av" '%s' "$__ad"
++        echo -e "${yellow}[auto]${plain} ${__ap}${__ad}"
++    else
++        read -rp "$__ap" "$__av"
++    fi
++}
++
++# Alphanumeric random string (URL-safe, no base64 specials).
++gen_random_string() {
++    local length="$1"
++    LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom 2>/dev/null | head -c "$length"
++}
++
++# Is a TCP port currently being listened on? (used to avoid clashing with an
++# existing panel such as 3x-ui, whose default sub port is also 2096.)
++is_port_in_use() {
++    # 整行匹配「:端口 + 空白/行尾」,不按第几列取 —— 不同版本 ss/netstat 列数不一样,
++    # 按列取会悄悄失效,而失效表现是「误判端口空闲」、装完照样起不来,比报错更难查。
++    # 末尾的边界防止 12096 / 20960 被误判成 2096。
++    local port="$1"
++    if command -v ss > /dev/null 2>&1; then
++        ss -ltn 2> /dev/null | grep -qE "[:.]${port}([[:space:]]|$)"
++        return
++    fi
++    if command -v netstat > /dev/null 2>&1; then
++        netstat -lnt 2> /dev/null | grep -qE "[:.]${port}([[:space:]]|$)"
++        return
++    fi
++    if command -v lsof > /dev/null 2>&1; then
++        lsof -nP -iTCP:"${port}" -sTCP:LISTEN > /dev/null 2>&1 && return 0
++    fi
++    return 1
++}
++
++# Echo a free port: prefer $1, else fall back to a random high port. Keeps the
++# nice default when it's free, only deviates when something already holds it.
++pick_port() {
++    local preferred="$1" p
++    if ! is_port_in_use "$preferred"; then
++        echo "$preferred"
++        return
++    fi
++    for _ in $(seq 1 30); do
++        p=$(shuf -i 20000-60000 -n 1)
++        if ! is_port_in_use "$p"; then
++            echo "$p"
++            return
++        fi
++    done
++    echo "$preferred"
++}
++
++# On upgrade s-ui was just stopped, so anything still holding our panel/sub port
++# is a DIFFERENT process (classically a 3x-ui install also defaulting to sub port
++# 2096). Left alone, s-ui crash-loops on "bind: address already in use" and the
++# panel 503s. Detect the clash and migrate the affected port to a free one.
++resolve_port_clash() {
++    local cur_port cur_sub params=""
++    cur_port=$(/usr/local/s-ui/sui setting -show 2>/dev/null | grep -i "Panel port:" | grep -oE '[0-9]+' | head -1)
++    cur_sub=$(/usr/local/s-ui/sui setting -show 2>/dev/null | grep -i "Sub port:" | grep -oE '[0-9]+' | head -1)
++    if [[ -n "$cur_port" ]] && is_port_in_use "$cur_port"; then
++        local np=$(pick_port "$cur_port")
++        params="$params -port $np"
++        echo -e "${red}[auto] Panel port ${cur_port} is already in use by another process; moving the panel to ${np}.${plain}"
++    fi
++    if [[ -n "$cur_sub" ]] && is_port_in_use "$cur_sub"; then
++        local ns=$(pick_port "$cur_sub")
++        params="$params -subPort $ns"
++        echo -e "${red}[auto] Sub port ${cur_sub} is already in use (another panel? e.g. 3x-ui on 2096); moving subscriptions to ${ns}.${plain}"
++    fi
++    if [[ -n "$params" ]]; then
++        /usr/local/s-ui/sui setting ${params}
++        echo -e "${yellow}[auto] Ports changed to avoid a clash. Update any subscription links / bookmarks accordingly.${plain}"
++    fi
++}
++
+ # check root
+ [[ $EUID -ne 0 ]] && echo -e "${red}Fatal error: ${plain} Please run this script with root privilege \n " && exit 1
+ 
++# 一键彻底清除入口: bash <(curl -Ls .../install.sh) purge
++# 为什么不复用 s-ui.sh 的卸载:安装被中断时 /usr/bin/s-ui 可能压根没铺下去,
++# 那条路走不通。这里只依赖 root,不依赖任何已安装的文件,也不做系统检测 ——
++# 检测失败就 exit 的话,最需要清理的机器反而清不了。
++if [[ "$1" == "purge" || "$1" == "uninstall" || "$1" == "--purge" ]]; then
++    echo -e "${yellow}Removing every trace of s-ui from this system...${plain}"
++
++    # 每一步独立执行、失败不影响后面:装坏的机器上服务和文件往往只存在一部分。
++    systemctl stop s-ui >/dev/null 2>&1
++    systemctl disable s-ui >/dev/null 2>&1
++    # 二进制被删掉后残留的进程会占着端口,先杀干净
++    pkill -9 -f '/usr/local/s-ui' >/dev/null 2>&1
++    rm -f /etc/systemd/system/s-ui.service
++    rm -f /etc/systemd/system/multi-user.target.wants/s-ui.service
++    systemctl daemon-reload >/dev/null 2>&1
++    systemctl reset-failed >/dev/null 2>&1
++
++    rm -rf /etc/s-ui/
++    rm -rf /usr/local/s-ui/
++    rm -f /usr/bin/s-ui
++
++    echo -e "${green}Done. s-ui has been completely removed.${plain}"
++    echo -e "Reinstall with: ${green}bash <(curl -Ls https://raw.githubusercontent.com/Teminuosi/s-ui/main/install.sh)${plain}"
++    exit 0
++fi
++
++
+ # Check OS and set release variable
+ if [[ -f /etc/os-release ]]; then
+     source /etc/os-release
+@@ -61,7 +183,55 @@ install_base() {
+ config_after_install() {
+     echo -e "${yellow}Migration... ${plain}"
+     /usr/local/s-ui/sui migrate
+-    
++
++    # Full-auto mode: no prompts. Fresh install -> random credentials + random
++    # panel path; upgrade -> keep existing settings untouched.
++    if is_auto; then
++        if [[ ! -f "/usr/local/s-ui/db/s-ui.db" ]]; then
++            local config_account=$(gen_random_string 10)
++            local config_password=$(gen_random_string 12)
++            local config_path=$(gen_random_string 15)
++            # Pick free ports so we don't clash with an existing panel (e.g. a
++            # 3x-ui install already on 2096). Keep the defaults when they're free.
++            local config_port=$(pick_port 2095)
++            local config_subPort=$(pick_port 2096)
++            echo -e "${yellow}[auto] Fresh install: generating random credentials, panel path and free ports...${plain}"
++            [[ "$config_port" != "2095" ]] && echo -e "${yellow}[auto] Port 2095 busy, using ${config_port} for the panel.${plain}"
++            [[ "$config_subPort" != "2096" ]] && echo -e "${yellow}[auto] Port 2096 busy, using ${config_subPort} for subscriptions.${plain}"
++            /usr/local/s-ui/sui setting -port "${config_port}" -path "/${config_path}/" -subPort "${config_subPort}"
++            /usr/local/s-ui/sui admin -username "${config_account}" -password "${config_password}"
++            # Generate an APIv2 token so this server can be managed from another
++            # panel out of the box (central management).
++            local config_token=$(/usr/local/s-ui/sui token -desc install 2>/dev/null)
++            echo -e "###############################################"
++            echo -e "${green}username:${config_account}${plain}"
++            echo -e "${green}password:${config_password}${plain}"
++            echo -e "${green}panel port:${config_port}${plain}"
++            echo -e "${green}panel path:/${config_path}/${plain}"
++            echo -e "${green}sub port:${config_subPort}${plain}"
++            if [[ -n "$config_token" ]]; then
++                echo -e "${green}API token (copy the line below):${plain}"
++                echo -e "${config_token}"
++            fi
++            echo -e "###############################################"
++            echo -e "${red}If you forget your login info, type ${green}s-ui${red} on the server for the menu.${plain}"
++        else
++            echo -e "${yellow}[auto] Upgrade detected: keeping existing settings.${plain}"
++            # Guard against a port clash with another panel on the same box.
++            resolve_port_clash
++            local up_token=$(/usr/local/s-ui/sui token -desc upgrade 2>/dev/null)
++            echo -e "###############################################"
++            /usr/local/s-ui/sui admin -show 2>/dev/null
++            if [[ -n "$up_token" ]]; then
++                echo -e "${green}API token (copy the line below):${plain}"
++                echo -e "${up_token}"
++            fi
++            echo -e "${red}If you forget your login info, type ${green}s-ui${red} on the server for the menu.${plain}"
++            echo -e "###############################################"
++        fi
++        return
++    fi
++
+     echo -e "${yellow}Install/update finished! For security it's recommended to modify panel settings ${plain}"
+     read -p "Do you want to continue with the modification [y/n]? ": config_confirm
+     if [[ "${config_confirm}" == "y" || "${config_confirm}" == "Y" ]]; then
+@@ -103,19 +273,50 @@ config_after_install() {
+         if [[ ! -f "/usr/local/s-ui/db/s-ui.db" ]]; then
+             local usernameTemp=$(head -c 6 /dev/urandom | base64)
+             local passwordTemp=$(head -c 6 /dev/urandom | base64)
++            /usr/local/s-ui/sui admin -username ${usernameTemp} -password ${passwordTemp}
++            # Mint an APIv2 token even on a plain (non-auto) fresh install, so this
++            # panel can be managed centrally out of the box. (qs31)
++            local config_token=$(/usr/local/s-ui/sui token -desc install 2>/dev/null)
+             echo -e "this is a fresh installation,will generate random login info for security concerns:"
+             echo -e "###############################################"
+             echo -e "${green}username:${usernameTemp}${plain}"
+             echo -e "${green}password:${passwordTemp}${plain}"
++            if [[ -n "$config_token" ]]; then
++                echo -e "${green}API token (copy the line below):${plain}"
++                echo -e "${config_token}"
++            fi
+             echo -e "###############################################"
+             echo -e "${red}if you forgot your login info,you can type ${green}s-ui${red} for configuration menu${plain}"
+-            /usr/local/s-ui/sui admin -username ${usernameTemp} -password ${passwordTemp}
+         else
+             echo -e "${red} this is your upgrade,will keep old settings,if you forgot your login info,you can type ${green}s-ui${red} for configuration menu${plain}"
+         fi
+     fi
+ }
+ 
++# Best-effort: open the panel/sub ports and the node port range in the host
++# firewall so nodes are reachable out of the box. Full-auto only.
++open_firewall() {
++    is_auto || return 0
++    local panel_port sub_port
++    panel_port=$(/usr/local/s-ui/sui setting -show 2>/dev/null | grep -i "Panel port:" | grep -oE '[0-9]+' | head -1)
++    sub_port=$(/usr/local/s-ui/sui setting -show 2>/dev/null | grep -i "Sub port:" | grep -oE '[0-9]+' | head -1)
++    if command -v ufw > /dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
++        [[ -n "$panel_port" ]] && ufw allow "${panel_port}/tcp" > /dev/null 2>&1
++        [[ -n "$sub_port" ]] && ufw allow "${sub_port}/tcp" > /dev/null 2>&1
++        ufw allow 10000:60000/tcp > /dev/null 2>&1
++        ufw allow 10000:60000/udp > /dev/null 2>&1
++        ufw reload > /dev/null 2>&1
++        echo -e "${green}[auto] Firewall (ufw) opened: ${panel_port}, ${sub_port}, 10000-60000 tcp/udp.${plain}"
++    elif command -v firewall-cmd > /dev/null 2>&1 && firewall-cmd --state > /dev/null 2>&1; then
++        [[ -n "$panel_port" ]] && firewall-cmd --permanent --add-port="${panel_port}/tcp" > /dev/null 2>&1
++        [[ -n "$sub_port" ]] && firewall-cmd --permanent --add-port="${sub_port}/tcp" > /dev/null 2>&1
++        firewall-cmd --permanent --add-port=10000-60000/tcp > /dev/null 2>&1
++        firewall-cmd --permanent --add-port=10000-60000/udp > /dev/null 2>&1
++        firewall-cmd --reload > /dev/null 2>&1
++        echo -e "${green}[auto] Firewall (firewalld) opened: ${panel_port}, ${sub_port}, 10000-60000 tcp/udp.${plain}"
++    fi
++}
++
+ prepare_services() {
+     if [[ -f "/etc/systemd/system/sing-box.service" ]]; then
+         echo -e "${yellow}Stopping sing-box service... ${plain}"
+@@ -131,28 +332,63 @@ prepare_services() {
+     systemctl daemon-reload
+ }
+ 
++# Download a GitHub release asset with retry + mirror fallback. A CN VPS often
++# reaches github.com (so the version fetch above succeeds) but then gets its
++# release-CDN connection reset mid-transfer -- the classic wget "Cannot write to
++# '/tmp/...tar.gz' (Success)." followed by "Downloading s-ui failed". So we retry
++# the direct URL, then fall back through public GitHub proxy mirrors, and verify
++# the result is a real gzip each time so a mirror's HTML error page can't slip
++# through as a "successful" download.
++# Usage: download_release OUT_FILE GITHUB_URL
++download_release() {
++    local out="$1" gh_url="$2" src label
++    local sources=(
++        "$gh_url"
++        "https://ghfast.top/$gh_url"
++        "https://gh-proxy.com/$gh_url"
++        "https://ghproxy.net/$gh_url"
++    )
++    for src in "${sources[@]}"; do
++        if [[ "$src" == "$gh_url" ]]; then
++            echo -e "${yellow}Downloading (direct github.com)...${plain}"
++        else
++            label="${src#https://}"; label="${label%%/*}"
++            echo -e "${yellow}Direct download failed, retrying via mirror: ${label}${plain}"
++        fi
++        if wget --no-check-certificate --timeout=30 --tries=2 -O "$out" "$src" \
++            && tar -tzf "$out" > /dev/null 2>&1; then
++            return 0
++        fi
++        rm -f "$out"
++    done
++    return 1
++}
++
+ install_s-ui() {
+     cd /tmp/
+ 
+     if [ $# == 0 ]; then
+-        last_version=$(curl -Ls "https://api.github.com/repos/alireza0/s-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
++        last_version=$(curl -Ls "https://api.github.com/repos/Teminuosi/s-ui/releases/latest" | grep '"tag_name":' | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
++        # Fall back to the most recent release (covers prerelease-only repos:
++        # /releases/latest skips prereleases, /releases lists everything).
++        if [[ -z "$last_version" ]]; then
++            last_version=$(curl -Ls "https://api.github.com/repos/Teminuosi/s-ui/releases" | grep '"tag_name":' | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
++        fi
+         if [[ ! -n "$last_version" ]]; then
+             echo -e "${red}Failed to fetch s-ui version, it maybe due to Github API restrictions, please try it later${plain}"
+             exit 1
+         fi
+         echo -e "Got s-ui latest version: ${last_version}, beginning the installation..."
+-        wget -N --no-check-certificate -O /tmp/s-ui-linux-$(arch).tar.gz https://github.com/alireza0/s-ui/releases/download/${last_version}/s-ui-linux-$(arch).tar.gz
+-        if [[ $? -ne 0 ]]; then
+-            echo -e "${red}Downloading s-ui failed, please be sure that your server can access Github ${plain}"
++        if ! download_release /tmp/s-ui-linux-$(arch).tar.gz "https://github.com/Teminuosi/s-ui/releases/download/${last_version}/s-ui-linux-$(arch).tar.gz"; then
++            echo -e "${red}Downloading s-ui failed after trying direct + mirrors. Make sure your server can reach Github (or a proxy) and that /tmp has free disk space.${plain}"
+             exit 1
+         fi
+     else
+         last_version=$1
+-        url="https://github.com/alireza0/s-ui/releases/download/${last_version}/s-ui-linux-$(arch).tar.gz"
++        url="https://github.com/Teminuosi/s-ui/releases/download/${last_version}/s-ui-linux-$(arch).tar.gz"
+         echo -e "Beginning the install s-ui v$1"
+-        wget -N --no-check-certificate -O /tmp/s-ui-linux-$(arch).tar.gz ${url}
+-        if [[ $? -ne 0 ]]; then
+-            echo -e "${red}download s-ui v$1 failed,please check the version exists${plain}"
++        if ! download_release /tmp/s-ui-linux-$(arch).tar.gz "${url}"; then
++            echo -e "${red}download s-ui v$1 failed (tried direct + mirrors), please check the version exists${plain}"
+             exit 1
+         fi
+     fi
+@@ -171,11 +407,12 @@ install_s-ui() {
+     rm -rf s-ui
+ 
+     config_after_install
++    open_firewall
+     prepare_services
+ 
+     systemctl enable s-ui --now
+ 
+-    echo -e "${green}s-ui v${last_version}${plain} installation finished, it is up and running now..."
++    echo -e "${green}s-ui ${last_version}${plain} installation finished, it is up and running now..."
+     echo -e "You may access the Panel with following URL(s):${green}"
+     /usr/local/s-ui/sui uri
+     echo -e "${plain}"
+diff --git a/network/tls.go b/network/tls.go
+new file mode 100644
+index 0000000..3e2af30
+--- /dev/null
++++ b/network/tls.go
+@@ -0,0 +1,22 @@
++package network
++
++import (
++	"crypto/tls"
++	"fmt"
++	"strings"
++)
++
++func NewTLSConfig(cert tls.Certificate, domain string) *tls.Config {
++	if domain == "" {
++		return &tls.Config{Certificates: []tls.Certificate{cert}}
++	}
++	crt := cert
++	return &tls.Config{
++		GetCertificate: func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
++			if !strings.EqualFold(hello.ServerName, domain) {
++				return nil, fmt.Errorf("tls: unrecognized server name %q", hello.ServerName)
++			}
++			return &crt, nil
++		},
++	}
++}
+diff --git a/s-ui.sh b/s-ui.sh
+index 80c5e02..4bde438 100644
+--- a/s-ui.sh
++++ b/s-ui.sh
+@@ -63,7 +63,7 @@ before_show_menu() {
+ }
+ 
+ install() {
+-    bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/main/install.sh)
++    bash <(curl -Ls https://raw.githubusercontent.com/Teminuosi/s-ui/main/install.sh)
+     if [[ $? == 0 ]]; then
+         if [[ $# == 0 ]]; then
+             start
+@@ -82,7 +82,7 @@ update() {
+         fi
+         return 0
+     fi
+-    bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/main/install.sh)
++    bash <(curl -Ls https://raw.githubusercontent.com/Teminuosi/s-ui/main/install.sh)
+     if [[ $? == 0 ]]; then
+         LOGI "Update is complete, Panel has automatically restarted "
+         exit 0
+@@ -98,7 +98,7 @@ custom_version() {
+     exit 1
+     fi
+ 
+-    download_link="https://raw.githubusercontent.com/alireza0/s-ui/master/install.sh"
++    download_link="https://raw.githubusercontent.com/Teminuosi/s-ui/main/install.sh"
+ 
+     install_command="bash <(curl -Ls $download_link) $panel_version"
+ 
+@@ -116,14 +116,20 @@ uninstall() {
+     fi
+     systemctl stop s-ui
+     systemctl disable s-ui
+-    rm /etc/systemd/system/s-ui.service -f
++    # Kill anything still running from a deleted binary so the port frees up.
++    pkill -9 -f '/usr/local/s-ui' 2>/dev/null
++    rm -f /etc/systemd/system/s-ui.service
++    rm -f /etc/systemd/system/multi-user.target.wants/s-ui.service
+     systemctl daemon-reload
+     systemctl reset-failed
+-    rm /etc/s-ui/ -rf
+-    rm /usr/local/s-ui/ -rf
++    rm -rf /etc/s-ui/
++    rm -rf /usr/local/s-ui/
++    # The menu script itself is /usr/bin/s-ui; remove it too so `s-ui` is gone
++    # after uninstall (the running copy lives in memory, so this is safe).
++    rm -f /usr/bin/s-ui
+ 
+     echo ""
+-    echo -e "Uninstalled Successfully, If you want to remove this script, then after exiting the script run ${green}rm /usr/local/s-ui -f${plain} to delete it."
++    echo -e "${green}Uninstalled cleanly: binary, database, service unit and the s-ui menu script are all removed.${plain}"
+     echo ""
+ 
+     if [[ $# == 0 ]]; then
+@@ -148,8 +154,19 @@ set_admin() {
+     before_show_menu
+ }
+ 
++show_api_token() {
++    # Print the central-management APIv2 token. Without -new this reuses the
++    # existing token (idempotent), so viewing it never piles up new tokens.
++    local token=$(/usr/local/s-ui/sui token -desc menu 2>/dev/null)
++    if [[ -n "$token" ]]; then
++        echo -e "${green}API token (copy the line below):${plain}"
++        echo -e "${token}"
++    fi
++}
++
+ view_admin() {
+     /usr/local/s-ui/sui admin -show
++    show_api_token
+     before_show_menu
+ }
+ 
+@@ -185,6 +202,7 @@ set_setting() {
+ view_setting() {
+     /usr/local/s-ui/sui setting -show
+     view_uri
++    show_api_token
+     before_show_menu
+ }
+ 
+@@ -295,7 +313,7 @@ show_log() {
+ }
+ 
+ update_shell() {
+-    wget -O /usr/bin/s-ui -N --no-check-certificate https://github.com/alireza0/s-ui/raw/main/s-ui.sh
++    wget -O /usr/bin/s-ui -N --no-check-certificate https://github.com/Teminuosi/s-ui/raw/main/s-ui.sh
+     if [[ $? != 0 ]]; then
+         echo ""
+         LOGE "Failed to download script, Please check whether the machine can connect Github"
+@@ -820,10 +838,12 @@ show_menu() {
+   ${green}18.${plain} Enable or Disable BBR
+   ${green}19.${plain} SSL Certificate Management
+   ${green}20.${plain} Cloudflare SSL Certificate
++————————————————————————————————
++  ${green}21.${plain} Update Menu Script
+ ————————————————————————————————
+  "
+     show_status s-ui
+-    echo && read -p "Please enter your selection [0-20]: " num
++    echo && read -p "Please enter your selection [0-21]: " num
+ 
+     case "${num}" in
+     0)
+@@ -839,7 +859,9 @@ show_menu() {
+         check_install && custom_version
+         ;;
+     4)
+-        check_install && uninstall
++        # 卸载不设前置检查:装到一半失败时面板状态就是「未安装」,
++        # 再挡一道就成了死锁 —— 残留文件反而永远清不掉。
++        uninstall
+         ;;
+     5)
+         check_install && reset_admin
+@@ -889,8 +911,11 @@ show_menu() {
+     20)
+         ssl_cert_issue_CF
+         ;;
++    21)
++        update_shell
++        ;;
+     *)
+-        LOGE "Please enter the correct number [0-20]"
++        LOGE "Please enter the correct number [0-21]"
+         ;;
+     esac
+ }
+@@ -925,7 +950,7 @@ if [[ $# > 0 ]]; then
+         check_uninstall 0 && install 0
+         ;;
+     "uninstall")
+-        check_install 0 && uninstall 0
++        uninstall 0
+         ;;
+     *) show_usage ;;
+     esac
+diff --git a/service/client.go b/service/client.go
+index 70be8dc..ac6e80e 100644
+--- a/service/client.go
++++ b/service/client.go
+@@ -294,6 +294,15 @@ func (s *ClientService) UpdateClientsOnInboundDelete(tx *gorm.DB, id uint, tag s
+ 				newClientInbounds = append(newClientInbounds, clientInbound)
+ 			}
+ 		}
++		// Orphan cleanup: a client that no longer belongs to any inbound is
++		// removed together with the inbound it was created for.
++		if len(newClientInbounds) == 0 {
++			err = tx.Where("id = ?", client.Id).Delete(model.Client{}).Error
++			if err != nil {
++				return err
++			}
++			continue
++		}
+ 		client.Inbounds, err = json.MarshalIndent(newClientInbounds, "", "  ")
+ 		if err != nil {
+ 			return err
+diff --git a/service/config.go b/service/config.go
+index 91ec07d..86a2251 100644
+--- a/service/config.go
++++ b/service/config.go
+@@ -30,6 +30,7 @@ type ConfigService struct {
+ 	OutboundService
+ 	ServicesService
+ 	EndpointService
++	ServerListService
+ }
+ 
+ type SingBoxConfig struct {
+@@ -209,7 +210,7 @@ func (s *ConfigService) Save(obj string, act string, data json.RawMessage, initU
+ 		inboundIds, err = s.ClientService.Save(tx, act, data, hostname)
+ 		if err == nil && len(inboundIds) > 0 {
+ 			objs = append(objs, "inbounds")
+-			err = s.InboundService.RestartInbounds(tx, inboundIds)
++			err = s.InboundService.UpdateInboundsUsers(tx, inboundIds)
+ 			if err != nil {
+ 				return nil, common.NewErrorf("failed to update users for inbounds: %v", err)
+ 			}
+@@ -236,6 +237,9 @@ func (s *ConfigService) Save(obj string, act string, data json.RawMessage, initU
+ 		go func() { _ = s.restartCoreWithConfig(configData) }()
+ 	case "settings":
+ 		err = s.SettingService.Save(tx, data)
++	case "servers":
++		// Saved panel addresses (launcher); no core involvement.
++		err = s.ServerListService.Save(tx, act, data)
+ 	default:
+ 		return nil, common.NewError("unknown object: ", obj)
+ 	}
+@@ -264,32 +268,34 @@ func (s *ConfigService) CheckChanges(lu string) (bool, error) {
+ 	if lu == "" {
+ 		return true, nil
+ 	}
++	intLu, err := strconv.ParseInt(lu, 10, 64)
++	if err != nil {
++		return false, err
++	}
+ 	if LastUpdate == 0 {
+ 		db := database.GetDB()
+ 		var count int64
+-		err := db.Model(model.Changes{}).Where("date_time > " + lu).Count(&count).Error
++		err := db.Model(model.Changes{}).Where("date_time > ?", intLu).Count(&count).Error
+ 		if err == nil {
+ 			LastUpdate = time.Now().Unix()
+ 		}
+ 		return count > 0, err
+-	} else {
+-		intLu, err := strconv.ParseInt(lu, 10, 64)
+-		return LastUpdate > intLu, err
+ 	}
++	return LastUpdate > intLu, nil
+ }
+ 
+ func (s *ConfigService) GetChanges(actor string, chngKey string, count string) []model.Changes {
+ 	c, _ := strconv.Atoi(count)
+-	whereString := "`id`>0"
++	db := database.GetDB()
++	tx := db.Model(model.Changes{}).Where("`id` > 0")
+ 	if len(actor) > 0 {
+-		whereString += " and `actor`='" + actor + "'"
++		tx = tx.Where("`actor` = ?", actor)
+ 	}
+ 	if len(chngKey) > 0 {
+-		whereString += " and `key`='" + chngKey + "'"
++		tx = tx.Where("`key` = ?", chngKey)
+ 	}
+-	db := database.GetDB()
+ 	var chngs []model.Changes
+-	err := db.Model(model.Changes{}).Where(whereString).Order("`id` desc").Limit(c).Scan(&chngs).Error
++	err := tx.Order("`id` desc").Limit(c).Scan(&chngs).Error
+ 	if err != nil {
+ 		logger.Warning(err)
+ 	}
+diff --git a/service/inbounds.go b/service/inbounds.go
+index 8d7fc14..390258c 100644
+--- a/service/inbounds.go
++++ b/service/inbounds.go
+@@ -8,6 +8,7 @@ import (
+ 
+ 	"github.com/alireza0/s-ui/database"
+ 	"github.com/alireza0/s-ui/database/model"
++	"github.com/alireza0/s-ui/logger"
+ 	"github.com/alireza0/s-ui/util"
+ 	"github.com/alireza0/s-ui/util/common"
+ 
+@@ -259,9 +260,7 @@ func (s *InboundService) fetchUsers(db *gorm.DB, inboundType string, condition s
+ 	}
+ 	if inboundType == "shadowsocks" {
+ 		method, _ := inbound["method"].(string)
+-		if method == "2022-blake3-aes-128-gcm" {
+-			inboundType = "shadowsocks16"
+-		}
++		inboundType = util.ShadowsocksClientConfigKey(method)
+ 	}
+ 
+ 	var users []string
+@@ -273,10 +272,19 @@ func (s *InboundService) fetchUsers(db *gorm.DB, inboundType string, condition s
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	stripVision := false
++	if inboundType == "vless" {
++		transportType := ""
++		if tr, ok := inbound["transport"].(map[string]interface{}); ok {
++			transportType, _ = tr["type"].(string)
++		}
++		stripVision = inbound["tls"] == nil || transportType != ""
++	}
++
+ 	var usersJson []json.RawMessage
+ 	for _, user := range users {
+-		if inboundType == "vless" && inbound["tls"] == nil {
+-			user = strings.Replace(user, "xtls-rprx-vision", "", -1)
++		if stripVision {
++			user = strings.ReplaceAll(user, "xtls-rprx-vision", "")
+ 		}
+ 		usersJson = append(usersJson, json.RawMessage(user))
+ 	}
+@@ -328,6 +336,69 @@ func (s *InboundService) initUsers(db *gorm.DB, inboundJson []byte, clientIds st
+ 	return json.Marshal(inbound)
+ }
+ 
++func (s *InboundService) enabledClientNames(tx *gorm.DB, inboundId uint) (map[string]struct{}, error) {
++	var names []string
++	err := tx.Raw(
++		"SELECT clients.name FROM clients, json_each(clients.inbounds) AS je WHERE je.value = ? AND clients.enable = true",
++		inboundId).Scan(&names).Error
++	if err != nil {
++		return nil, err
++	}
++	keep := make(map[string]struct{}, len(names))
++	for _, name := range names {
++		keep[name] = struct{}{}
++	}
++	return keep, nil
++}
++
++func (s *InboundService) UpdateInboundsUsers(tx *gorm.DB, ids []uint) error {
++	if !corePtr.IsRunning() {
++		return nil
++	}
++	var inbounds []*model.Inbound
++	err := tx.Model(model.Inbound{}).Preload("Tls").Where("id in ?", ids).Find(&inbounds).Error
++	if err != nil {
++		return err
++	}
++	for _, inbound := range inbounds {
++		inboundConfig, err := inbound.MarshalJSON()
++		if err != nil {
++			return err
++		}
++		inboundConfig, err = s.addUsers(tx, inboundConfig, inbound.Id, inbound.Type)
++		if err != nil {
++			return err
++		}
++
++		handled, err := corePtr.UpdateInboundUsers(inboundConfig)
++		if err != nil {
++			return err
++		}
++		if handled {
++			// Disconnect only users no longer enabled on this inbound
++			keep, err := s.enabledClientNames(tx, inbound.Id)
++			if err != nil {
++				return err
++			}
++			closed := corePtr.GetInstance().ConnTracker().CloseConnByInboundUsers(inbound.Tag, keep)
++			logger.Debug("updated users of inbound ", inbound.Tag, " in place, closed ", closed, " stale connections")
++			continue
++		}
++
++		// Fallback: full restart for protocols without in-place user updates
++		err = corePtr.RemoveInbound(inbound.Tag)
++		if err != nil && err != os.ErrInvalid {
++			return err
++		}
++		corePtr.GetInstance().ConnTracker().CloseConnByInbound(inbound.Tag)
++		err = corePtr.AddInbound(inboundConfig)
++		if err != nil {
++			return err
++		}
++	}
++	return nil
++}
++
+ func (s *InboundService) RestartInbounds(tx *gorm.DB, ids []uint) error {
+ 	if !corePtr.IsRunning() {
+ 		return nil
+diff --git a/service/panel.go b/service/panel.go
+index 24e1c2f..ad5dccb 100644
+--- a/service/panel.go
++++ b/service/panel.go
+@@ -1,11 +1,19 @@
+ package service
+ 
+ import (
++	"encoding/json"
++	"fmt"
++	"io"
++	"net/http"
+ 	"os"
++	"os/exec"
+ 	"runtime"
++	"strconv"
++	"strings"
+ 	"syscall"
+ 	"time"
+ 
++	"github.com/alireza0/s-ui/config"
+ 	"github.com/alireza0/s-ui/logger"
+ )
+ 
+@@ -30,3 +38,201 @@ func (s *PanelService) RestartPanel(delay time.Duration) error {
+ 	}()
+ 	return nil
+ }
++
++// PanelUpdateInfo 是面板版本检查的结果。
++type PanelUpdateInfo struct {
++	CurrentVersion  string `json:"currentVersion"`
++	LatestVersion   string `json:"latestVersion"`
++	UpdateAvailable bool   `json:"updateAvailable"`
++}
++
++const (
++	// s-ui 没有独立的 update.sh,升级就是重跑 install.sh。这样做是安全的:
++	// 脚本里只有在 /usr/local/s-ui/db/s-ui.db 不存在时才生成随机账号密码和端口,
++	// 已装过的机器走的是「保留现有设置」那条路 —— 否则 Web 点一下更新就会
++	// 把管理员锁在面板外面。
++	panelUpdaterURL      = "https://raw.githubusercontent.com/Teminuosi/s-ui/main/install.sh"
++	panelReleaseAPI      = "https://api.github.com/repos/Teminuosi/s-ui/releases/latest"
++	maxPanelUpdaterBytes = 2 << 20
++)
++
++// GetUpdateInfo 查 GitHub 上的最新 release,和本机版本比较。
++func (s *PanelService) GetUpdateInfo() (*PanelUpdateInfo, error) {
++	latest, err := fetchLatestPanelVersion()
++	if err != nil {
++		return nil, err
++	}
++	current := config.GetVersion()
++	return &PanelUpdateInfo{
++		CurrentVersion:  current,
++		LatestVersion:   latest,
++		UpdateAvailable: isNewerVersion(latest, current),
++	}, nil
++}
++
++// StartUpdate 在当前请求之外把更新跑起来。
++//
++// 关键是让更新进程活过面板自己 —— 脚本装完会重启 s-ui,如果更新进程是面板的
++// 子进程,它会跟着一起死,留下装了一半的状态。优先用 systemd-run 起一个独立
++// 单元;拿不到 systemd 就退回 setsid 脱离进程组。
++func (s *PanelService) StartUpdate() error {
++	if runtime.GOOS != "linux" {
++		return fmt.Errorf("panel web update is supported only on Linux installations")
++	}
++
++	bash, err := exec.LookPath("bash")
++	if err != nil {
++		return fmt.Errorf("bash is required to run the panel updater: %w", err)
++	}
++
++	scriptPath, err := downloadPanelUpdater()
++	if err != nil {
++		return err
++	}
++
++	// 跑完删掉临时脚本,不管成败。SUI_AUTO=1 让它全程不问问题。
++	updateScript := fmt.Sprintf("set -e; trap 'rm -f %s' EXIT; SUI_AUTO=1 %s %s",
++		shellQuote(scriptPath), shellQuote(bash), shellQuote(scriptPath))
++
++	if systemdRun, err := exec.LookPath("systemd-run"); err == nil {
++		unitName := fmt.Sprintf("s-ui-web-update-%d", time.Now().Unix())
++		cmd := exec.Command(systemdRun, "--unit", unitName, bash, "-lc", updateScript)
++		out, err := cmd.CombinedOutput()
++		if err != nil {
++			output := strings.TrimSpace(string(out))
++			// 容器或没跑 systemd 的环境:不是错误,退到 setsid 那条路
++			if !strings.Contains(output, "System has not been booted with systemd") &&
++				!strings.Contains(output, "Failed to connect to bus") {
++				_ = os.Remove(scriptPath)
++				return fmt.Errorf("failed to start panel update job: %w: %s", err, output)
++			}
++			logger.Warning("systemd-run unavailable, falling back to detached update process:", output)
++		} else {
++			logger.Info("started panel update job via systemd-run unit ", unitName)
++			return nil
++		}
++	}
++
++	cmd := exec.Command(bash, "-lc", "setsid "+updateScript+" >/dev/null 2>&1 </dev/null &")
++	if err := cmd.Start(); err != nil {
++		_ = os.Remove(scriptPath)
++		return fmt.Errorf("failed to start panel update job: %w", err)
++	}
++	if err := cmd.Process.Release(); err != nil {
++		logger.Warning("failed to release panel update process:", err)
++	}
++	logger.Info("started detached panel update job")
++	return nil
++}
++
++func downloadPanelUpdater() (string, error) {
++	client := &http.Client{Timeout: 15 * time.Second}
++	resp, err := client.Get(panelUpdaterURL)
++	if err != nil {
++		return "", fmt.Errorf("download panel updater: %w", err)
++	}
++	defer resp.Body.Close()
++	if resp.StatusCode != http.StatusOK {
++		return "", fmt.Errorf("download panel updater: unexpected HTTP %d", resp.StatusCode)
++	}
++
++	file, err := os.CreateTemp("", "s-ui-update-*.sh")
++	if err != nil {
++		return "", err
++	}
++	path := file.Name()
++	ok := false
++	defer func() {
++		_ = file.Close()
++		if !ok {
++			_ = os.Remove(path)
++		}
++	}()
++
++	n, err := io.Copy(file, io.LimitReader(resp.Body, maxPanelUpdaterBytes+1))
++	if err != nil {
++		return "", fmt.Errorf("write panel updater: %w", err)
++	}
++	if n > maxPanelUpdaterBytes {
++		return "", fmt.Errorf("panel updater exceeds %d bytes", maxPanelUpdaterBytes)
++	}
++	if err := file.Chmod(0700); err != nil {
++		return "", err
++	}
++	ok = true
++	return path, nil
++}
++
++func fetchLatestPanelVersion() (string, error) {
++	client := &http.Client{Timeout: 10 * time.Second}
++	resp, err := client.Get(panelReleaseAPI)
++	if err != nil {
++		return "", err
++	}
++	defer resp.Body.Close()
++	if resp.StatusCode != http.StatusOK {
++		return "", fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
++	}
++	var release struct {
++		TagName string `json:"tag_name"`
++	}
++	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
++		return "", err
++	}
++	if release.TagName == "" {
++		return "", fmt.Errorf("latest panel release tag is empty")
++	}
++	return release.TagName, nil
++}
++
++// 版本形如 1.4.2-qs43(CI 会把 tag 去掉 v 后写进 config/version)。
++// 先比三段主版本号,一样再比 qs 序号 —— 光比字符串的话,本地跑着比线上新的
++// 开发版时会一直亮「有更新」。
++func isNewerVersion(latest, current string) bool {
++	lMain, lQs, lOk := parseSuiVersion(latest)
++	cMain, cQs, cOk := parseSuiVersion(current)
++	if !lOk || !cOk {
++		return normalizeVersionTag(latest) != normalizeVersionTag(current)
++	}
++	for i := range lMain {
++		if lMain[i] != cMain[i] {
++			return lMain[i] > cMain[i]
++		}
++	}
++	return lQs > cQs
++}
++
++// 返回三段主版本号、qs 序号(没有则 0)、是否解析成功。
++func parseSuiVersion(version string) ([3]int, int, bool) {
++	var main [3]int
++	v := normalizeVersionTag(version)
++	qs := 0
++	if idx := strings.Index(v, "-qs"); idx >= 0 {
++		if n, err := strconv.Atoi(v[idx+3:]); err == nil {
++			qs = n
++		}
++		v = v[:idx]
++	} else if idx := strings.IndexAny(v, "-+"); idx >= 0 {
++		v = v[:idx]
++	}
++	parts := strings.Split(v, ".")
++	if len(parts) != 3 {
++		return main, 0, false
++	}
++	for i, p := range parts {
++		n, err := strconv.Atoi(p)
++		if err != nil {
++			return main, 0, false
++		}
++		main[i] = n
++	}
++	return main, qs, true
++}
++
++func normalizeVersionTag(version string) string {
++	return strings.TrimPrefix(strings.TrimSpace(version), "v")
++}
++
++func shellQuote(value string) string {
++	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
++}
+diff --git a/service/serverlist.go b/service/serverlist.go
+new file mode 100644
+index 0000000..6a2a959
+--- /dev/null
++++ b/service/serverlist.go
+@@ -0,0 +1,54 @@
++package service
++
++import (
++	"encoding/json"
++
++	"github.com/alireza0/s-ui/database"
++	"github.com/alireza0/s-ui/database/model"
++	"github.com/alireza0/s-ui/util/common"
++
++	"gorm.io/gorm"
++)
++
++// ServerListService manages the saved panel addresses (the server launcher).
++// Note: distinct from ServerService (which reports this host's system info).
++type ServerListService struct{}
++
++func (s *ServerListService) GetAll() ([]model.Server, error) {
++	db := database.GetDB()
++	var servers []model.Server
++	err := db.Model(model.Server{}).Find(&servers).Error
++	if err != nil {
++		return nil, err
++	}
++	return servers, nil
++}
++
++func (s *ServerListService) GetById(id string) (*model.Server, error) {
++	db := database.GetDB()
++	var server model.Server
++	err := db.Model(model.Server{}).Where("id = ?", id).First(&server).Error
++	if err != nil {
++		return nil, err
++	}
++	return &server, nil
++}
++
++func (s *ServerListService) Save(tx *gorm.DB, act string, data json.RawMessage) error {
++	switch act {
++	case "new", "edit":
++		var server model.Server
++		if err := json.Unmarshal(data, &server); err != nil {
++			return err
++		}
++		return tx.Save(&server).Error
++	case "del":
++		var id uint
++		if err := json.Unmarshal(data, &id); err != nil {
++			return err
++		}
++		return tx.Where("id = ?", id).Delete(model.Server{}).Error
++	default:
++		return common.NewErrorf("unknown action: %s", act)
++	}
++}
+diff --git a/service/user.go b/service/user.go
+index aea2861..70fe702 100644
+--- a/service/user.go
++++ b/service/user.go
+@@ -7,6 +7,7 @@ import (
+ 	"github.com/alireza0/s-ui/database"
+ 	"github.com/alireza0/s-ui/database/model"
+ 	"github.com/alireza0/s-ui/logger"
++	"github.com/alireza0/s-ui/util"
+ 	"github.com/alireza0/s-ui/util/common"
+ )
+ 
+@@ -32,18 +33,22 @@ func (s *UserService) UpdateFirstUser(username string, password string) error {
+ 	} else if password == "" {
+ 		return common.NewError("password can not be empty")
+ 	}
++	hashedPass, err := util.HashPassword(password)
++	if err != nil {
++		return err
++	}
+ 	db := database.GetDB()
+ 	user := &model.User{}
+-	err := db.Model(model.User{}).First(user).Error
++	err = db.Model(model.User{}).First(user).Error
+ 	if database.IsNotFound(err) {
+ 		user.Username = username
+-		user.Password = password
++		user.Password = hashedPass
+ 		return db.Model(model.User{}).Create(user).Error
+ 	} else if err != nil {
+ 		return err
+ 	}
+ 	user.Username = username
+-	user.Password = password
++	user.Password = hashedPass
+ 	return db.Save(user).Error
+ }
+ 
+@@ -60,7 +65,7 @@ func (s *UserService) CheckUser(username string, password string, remoteIP strin
+ 
+ 	user := &model.User{}
+ 	err := db.Model(model.User{}).
+-		Where("username = ? and password = ?", username, password).
++		Where("username = ?", username).
+ 		First(user).
+ 		Error
+ 	if database.IsNotFound(err) {
+@@ -70,6 +75,20 @@ func (s *UserService) CheckUser(username string, password string, remoteIP strin
+ 		return nil
+ 	}
+ 
++	if !util.CheckPassword(password, user.Password) {
++		return nil
++	}
++
++	if !util.IsHashedPassword(user.Password) {
++		if hashedPass, err := util.HashPassword(password); err == nil {
++			if err := db.Model(model.User{}).Where("id = ?", user.Id).Update("password", hashedPass).Error; err != nil {
++				logger.Warning("unable to upgrade stored password", err)
++			} else {
++				user.Password = hashedPass
++			}
++		}
++	}
++
+ 	lastLoginTxt := time.Now().Format("2006-01-02 15:04:05") + " " + remoteIP
+ 	err = db.Model(model.User{}).
+ 		Where("username = ?", username).
+@@ -93,12 +112,19 @@ func (s *UserService) GetUsers() (*[]model.User, error) {
+ func (s *UserService) ChangePass(id string, oldPass string, newUser string, newPass string) error {
+ 	db := database.GetDB()
+ 	user := &model.User{}
+-	err := db.Model(model.User{}).Where("id = ? AND password = ?", id, oldPass).First(user).Error
++	err := db.Model(model.User{}).Where("id = ?", id).First(user).Error
+ 	if err != nil || database.IsNotFound(err) {
+ 		return err
+ 	}
++	if !util.CheckPassword(oldPass, user.Password) {
++		return common.NewError("wrong password")
++	}
++	hashedPass, err := util.HashPassword(newPass)
++	if err != nil {
++		return err
++	}
+ 	user.Username = newUser
+-	user.Password = newPass
++	user.Password = hashedPass
+ 	return db.Save(user).Error
+ }
+ 
+@@ -159,3 +185,18 @@ func (s *UserService) DeleteToken(id string) error {
+ 	db := database.GetDB()
+ 	return db.Model(model.Tokens{}).Where("id = ?", id).Delete(&model.Tokens{}).Error
+ }
++
++// GetOrCreateToken returns an existing non-expired token if there is one, else
++// creates a new one. Used so install/upgrade can print a stable token without
++// piling up new ones on every run.
++func (s *UserService) GetOrCreateToken(username string, desc string) (string, error) {
++	db := database.GetDB()
++	var existing model.Tokens
++	err := db.Model(model.Tokens{}).
++		Where("(expiry == 0 or expiry > ?)", time.Now().Unix()).
++		First(&existing).Error
++	if err == nil && existing.Token != "" {
++		return existing.Token, nil
++	}
++	return s.AddToken(username, 0, desc)
++}
+diff --git a/sub/jsonService.go b/sub/jsonService.go
+index 67939b0..5a327e4 100644
+--- a/sub/jsonService.go
++++ b/sub/jsonService.go
+@@ -149,19 +149,25 @@ func (j *JsonService) getOutbounds(clientConfig json.RawMessage, inbounds []*mod
+ 				userPass = append(userPass, inbPass)
+ 			}
+ 			var pass string
+-			if method == "2022-blake3-aes-128-gcm" {
+-				pass, _ = configs["shadowsocks16"].(map[string]interface{})["password"].(string)
+-			} else {
+-				pass, _ = configs["shadowsocks"].(map[string]interface{})["password"].(string)
+-			}
++			pass, _ = configs[util.ShadowsocksClientConfigKey(method)].(map[string]interface{})["password"].(string)
+ 			userPass = append(userPass, pass)
+ 			outbound["password"] = strings.Join(userPass, ":")
+ 		} else { // Other protocols
+ 			config, _ := configs[protocol].(map[string]interface{})
+ 			for key, value := range config {
+-				if key == "name" || key == "alterId" || (key == "flow" && inData.TlsId == 0) {
++				if key == "name" || key == "alterId" {
+ 					continue
+ 				}
++				if key == "flow" {
++					if inData.TlsId == 0 {
++						continue
++					}
++					if tr, ok := outbound["transport"].(map[string]interface{}); ok {
++						if transportType, _ := tr["type"].(string); transportType != "" {
++							continue
++						}
++					}
++				}
+ 				outbound[key] = value
+ 			}
+ 		}
+diff --git a/sub/sub.go b/sub/sub.go
+index ac7a7a6..d13dae3 100644
+--- a/sub/sub.go
++++ b/sub/sub.go
+@@ -108,9 +108,11 @@ func (s *Server) Start() (err error) {
+ 			listener.Close()
+ 			return err
+ 		}
+-		c := &tls.Config{
+-			Certificates: []tls.Certificate{cert},
++		subDomain, err := s.SettingService.GetSubDomain()
++		if err != nil {
++			return err
+ 		}
++		c := network.NewTLSConfig(cert, subDomain)
+ 		listener = network.NewAutoHttpsListener(listener)
+ 		listener = tls.NewListener(listener, c)
+ 	}
+diff --git a/util/genLink.go b/util/genLink.go
+index 6f5615d..8068a35 100644
+--- a/util/genLink.go
++++ b/util/genLink.go
+@@ -159,11 +159,7 @@ func shadowsocksLink(
+ 		userPass = append(userPass, inbPass)
+ 	}
+ 	var pass string
+-	if method == "2022-blake3-aes-128-gcm" {
+-		pass, _ = userConfig["shadowsocks16"]["password"].(string)
+-	} else {
+-		pass, _ = userConfig["shadowsocks"]["password"].(string)
+-	}
++	pass, _ = userConfig[ShadowsocksClientConfigKey(method)]["password"].(string)
+ 	userPass = append(userPass, pass)
+ 
+ 	uriBase := fmt.Sprintf("ss://%s", toBase64([]byte(fmt.Sprintf("%s:%s", method, strings.Join(userPass, ":")))))
+diff --git a/util/password.go b/util/password.go
+new file mode 100644
+index 0000000..ec9be74
+--- /dev/null
++++ b/util/password.go
+@@ -0,0 +1,26 @@
++package util
++
++import (
++	"strings"
++
++	"golang.org/x/crypto/bcrypt"
++)
++
++func IsHashedPassword(stored string) bool {
++	return strings.HasPrefix(stored, "$2")
++}
++
++func HashPassword(plain string) (string, error) {
++	hash, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
++	if err != nil {
++		return "", err
++	}
++	return string(hash), nil
++}
++
++func CheckPassword(plain, stored string) bool {
++	if IsHashedPassword(stored) {
++		return bcrypt.CompareHashAndPassword([]byte(stored), []byte(plain)) == nil
++	}
++	return plain == stored
++}
+diff --git a/util/shadowsocks.go b/util/shadowsocks.go
+new file mode 100644
+index 0000000..d0f1913
+--- /dev/null
++++ b/util/shadowsocks.go
+@@ -0,0 +1,12 @@
++package util
++
++func ShadowsocksClientConfigKey(method string) string {
++	switch method {
++	case "2022-blake3-aes-128-gcm":
++		return "shadowsocks16"
++	case "2022-blake3-aes-256-gcm", "2022-blake3-chacha20-poly1305":
++		return "shadowsocks32"
++	default:
++		return "shadowsocks"
++	}
++}
+diff --git a/web/web.go b/web/web.go
+index 95543b4..bfe002b 100644
+--- a/web/web.go
++++ b/web/web.go
+@@ -129,6 +129,9 @@ func (s *Server) initRouter() (*gin.Engine, error) {
+ 			c.Redirect(http.StatusTemporaryRedirect, base_url)
+ 			return
+ 		}
++		// index.html references content-hashed assets; never let the browser
++		// serve a stale copy after an upgrade (old UI running on a new binary).
++		c.Header("Cache-Control", "no-store")
+ 		c.HTML(http.StatusOK, "index.html", gin.H{"BASE_URL": base_url})
+ 	})
+ 
+@@ -175,9 +178,11 @@ func (s *Server) Start() (err error) {
+ 			listener.Close()
+ 			return err
+ 		}
+-		c := &tls.Config{
+-			Certificates: []tls.Certificate{cert},
++		webDomain, err := s.settingService.GetWebDomain()
++		if err != nil {
++			return err
+ 		}
++		c := network.NewTLSConfig(cert, webDomain)
+ 		listener = network.NewAutoHttpsListener(listener)
+ 		listener = tls.NewListener(listener, c)
+ 	}

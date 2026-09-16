@@ -1,0 +1,17 @@
+{
+  "repo_kind": "backend",
+  "base": "7cfb1a7",
+  "base_full": "7cfb1a730aa5156b62a156706b95b25ee187dd2b",
+  "up_ref": "up/main",
+  "up_sha": "8704dd238ba9b404b20f0545dcc7a4d04f76fad6",
+  "cloud_ref": "cloud/main",
+  "cloud_sha": "13abbdc431ae31ec78a54f5e6643b7fd70b6e634",
+  "patch3_target": "13abbdc431ae31ec78a54f5e6643b7fd70b6e634",
+  "frontend_repo": "wtfdelphia/wtf-s-ui-frontend",
+  "frontend_branch": "dev-custom",
+  "frontend_sha": "edeac953f730c9423b2790ea04aeaea4014a9225",
+  "generated_at": "2026-09-16T17:50:32.187983+08:00",
+  "verified": true,
+  "dev_custom_sha": "24ccd605677a6042b46efa49c54e9ced52099d0a",
+  "notes": "03 applied onto cloud/main reproduces dev-custom tree (frontend gitlink included). Release-equivalent build (frontend + build.sh) passes on dev-custom. 2026-09-16 refresh: frontend dev-custom drops upstream promotional links; docker.yml re-adds tag trigger + version stamp so tag-built images report the tag version; dev-patch additionally carries docs/ (plan & analysis docs)."
+}
