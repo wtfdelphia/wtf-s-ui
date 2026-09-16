@@ -22,10 +22,11 @@ TAGS=$(tags_for dev)
 LDFLAGS=$(ldflags_for dev)
 
 # Platform-specific external linker flags: the macOS linker wants
-# -no_warn_duplicate_libraries; the GNU/Linux release CI links -static.
-case "$(uname)" in
-    Darwin) EXTLD="-Wl,-no_warn_duplicate_libraries" ;;
-    *)      EXTLD="-static" ;;
-esac
-
-go build -ldflags "$LDFLAGS -extldflags \"$EXTLD\"" -tags "$TAGS" -o sui main.go
+# -no_warn_duplicate_libraries; the release CI links statically against musl
+# (done by CI with a musl toolchain). For a local dev build on glibc we just
+# do a plain dynamic link — the static flag needs musl and cgo breaks on it.
+if [ "$(uname)" = "Darwin" ]; then
+    go build -ldflags "$LDFLAGS -extldflags -Wl,-no_warn_duplicate_libraries" -tags "$TAGS" -o sui main.go
+else
+    go build -ldflags "$LDFLAGS" -tags "$TAGS" -o sui main.go
+fi
