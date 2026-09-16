@@ -21,4 +21,11 @@ cp -R frontend/dist/* web/html/
 TAGS=$(tags_for dev)
 LDFLAGS=$(ldflags_for dev)
 
-go build -ldflags "$LDFLAGS -extldflags \"-Wl,-no_warn_duplicate_libraries\"" -tags "$TAGS" -o sui main.go
+# Platform-specific external linker flags: the macOS linker wants
+# -no_warn_duplicate_libraries; the GNU/Linux release CI links -static.
+case "$(uname)" in
+    Darwin) EXTLD="-Wl,-no_warn_duplicate_libraries" ;;
+    *)      EXTLD="-static" ;;
+esac
+
+go build -ldflags "$LDFLAGS -extldflags \"$EXTLD\"" -tags "$TAGS" -o sui main.go
